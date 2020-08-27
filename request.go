@@ -1,6 +1,11 @@
 package voorhees
 
-import "encoding/json"
+import (
+	"bufio"
+	"encoding/json"
+	"io"
+	"unicode"
+)
 
 // Request encapsulates a JSON-RPC request.
 type Request struct {
@@ -15,15 +20,9 @@ type Request struct {
 	// As per the specification, it MUST be a JSON string, number, or null
 	// value. It SHOULD NOT normally not be null. Numbers SHOULD NOT contain
 	// fractional parts.
-	ID interface{} `json:"id,omitempty"`
-
-	// IsNotification is true if the request represents a notification, as
-	// opposed to an RPC call.
 	//
-	// This is used to disambiguate between a request that was made without an
-	// ID value vs one made with a NULL ID (which is allowed, though
-	// discouraged, by the specification).
-	IsNotification bool
+	// If the ID field itself is nil, the request is a notification.
+	ID json.RawMessage `json:"id,omitempty"`
 
 	// Method is the name of the RPC method to be invoked.
 	//
@@ -61,4 +60,59 @@ type RequestSet struct {
 	// This is used to disambiguate between a single request and a batch that
 	// contains only one request.
 	IsBatch bool
+}
+
+// ParseRequestSet reads and parses a JSON-RPC request or request batch from r.
+//
+// It returns an error if the request set is malformed, but the requests are not
+// validated.
+func ParseRequestSet(r io.Reader) (RequestSet, error) {
+	br := bufio.NewReader(r)
+
+	for {
+		ch, _, err := br.ReadRune()
+		if err != nil {
+			return RequestSet{}, err
+		}
+
+		if unicode.IsSpace(ch) {
+			continue
+		}
+
+		br.UnreadRune()
+
+		if ch == '[' {
+			return parseBatchRequest(br)
+		}
+
+		return parseSingleRequest(br)
+	}
+}
+
+func parseSingleRequest(r *bufio.Reader) (RequestSet, error) {
+	var req Request
+
+	dec := json.NewDecoder(r)
+	if err := dec.Decode(&req); err != nil {
+		return RequestSet{}, err
+	}
+
+	return RequestSet{
+		Requests: []Request{req},
+		IsBatch:  false,
+	}, nil
+}
+
+func parseBatchRequest(r *bufio.Reader) (RequestSet, error) {
+	var batch []Request
+
+	dec := json.NewDecoder(r)
+	if err := dec.Decode(&batch); err != nil {
+		return RequestSet{}, err
+	}
+
+	return RequestSet{
+		Requests: batch,
+		IsBatch:  true,
+	}, nil
 }
