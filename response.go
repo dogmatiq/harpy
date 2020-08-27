@@ -26,9 +26,13 @@ type ErrorResponse struct {
 	RequestID interface{} `json:"id"`
 
 	// Error describes the error produced in response to the request.
-	Error struct {
-		Code    ErrorCode   `json:"code"`
-		Message string      `json:"message"`
-		Data    interface{} `json:"data,omitempty"`
-	} `json:"error"`
+	Error ErrorInfo `json:"error"`
+}
+
+// ErrorInfo describes a JSON-RPC error. It is included in an ErrorResponse, but
+// it is not a Go error.
+type ErrorInfo struct {
+	Code    ErrorCode   `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
 }
