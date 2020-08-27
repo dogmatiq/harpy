@@ -47,7 +47,7 @@ func NewError(code ErrorCode, options ...ErrorOption) Error {
 // choice to do so.
 func NewErrorWithReservedCode(code ErrorCode, options ...ErrorOption) Error {
 	if !code.IsReserved() {
-		panic(fmt.Sprintf("the error code %d is not reserved by the JSON-RPC specification (%s)", code, code))
+		panic(fmt.Sprintf("the error code %d is not reserved by the JSON-RPC specification", code))
 	}
 
 	return newError(code, options)
@@ -84,11 +84,6 @@ func (e Error) Data() interface{} {
 	return e.data
 }
 
-// Unwrap returns the cause of e, if known.
-func (e Error) Unwrap() error {
-	return e.cause
-}
-
 func (e Error) Error() string {
 	if e.message == "" {
 		// No user-defined error message was provided, all we really know is the
@@ -105,6 +100,11 @@ func (e Error) Error() string {
 	// Otherwise, the description of the code is quite meaningless, so we only
 	// show the user-defined message.
 	return fmt.Sprintf("[%d] %s", e.code, e.message)
+}
+
+// Unwrap returns the cause of e, if known.
+func (e Error) Unwrap() error {
+	return e.cause
 }
 
 // ErrorOption is an option that provides further information about an error.
@@ -215,8 +215,8 @@ func (c ErrorCode) String() string {
 	}
 
 	if c.IsReserved() {
-		return "undefined internal error"
+		return "undefined reserved error"
 	}
 
-	return "undefined error"
+	return "unknown error"
 }
