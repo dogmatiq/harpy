@@ -7,8 +7,56 @@ import (
 
 	. "github.com/jmalloc/voorhees"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
+
+var _ = Describe("type Request", func() {
+	Describe("func Validate()", func() {
+		DescribeTable(
+			"it returns nil when the request is valid",
+			func(id json.RawMessage) {
+				req := Request{
+					Version: "2.0",
+					ID:      id,
+				}
+
+				Expect(req.Validate()).To(BeNil())
+			},
+			Entry("string ID", json.RawMessage(`"<id>"`)),
+			Entry("integer ID", json.RawMessage(`1`)),
+			Entry("decimal ID", json.RawMessage(`1.2`)),
+			Entry("null ID", json.RawMessage(`null`)),
+		)
+
+		It("returns an error if the JSON-RPC version is incorrect", func() {
+			req := Request{
+				Version: "1.0",
+				ID:      json.RawMessage(`1`),
+			}
+
+			Expect(req.Validate()).To(MatchError(`request version must be "2.0"`))
+		})
+
+		It("returns an error if the request ID is an invalid type", func() {
+			req := Request{
+				Version: "2.0",
+				ID:      json.RawMessage(`{}`),
+			}
+
+			Expect(req.Validate()).To(MatchError("request ID must be a JSON string, number or null"))
+		})
+
+		It("returns an error if the request ID is not valid JSON", func() {
+			req := Request{
+				Version: "2.0",
+				ID:      json.RawMessage(`{`),
+			}
+
+			Expect(req.Validate()).To(MatchError("unexpected end of JSON input"))
+		})
+	})
+})
 
 var _ = Describe("func ParseRequestSet()", func() {
 	It("parses a single request", func() {
@@ -83,6 +131,14 @@ var _ = Describe("func ParseRequestSet()", func() {
 				Parameters: json.RawMessage(`[4, 5, 6]`),
 			},
 		))
+	})
+
+	It("ignores leading whitespace", func() {
+		r := strings.NewReader(`    []`)
+
+		rs, err := ParseRequestSet(r)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(rs.IsBatch).To(BeTrue())
 	})
 
 	It("omits the ID field if it is not present in the request", func() {

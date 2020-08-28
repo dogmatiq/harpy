@@ -3,9 +3,15 @@ package voorhees
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"unicode"
 )
+
+// jsonRPCVersion is the version that must appear in the "jsonrpc" field of
+// JSON-RPC v2 requests and responses.
+const jsonRPCVersion = "2.0"
 
 // Request encapsulates a JSON-RPC request.
 type Request struct {
@@ -47,6 +53,39 @@ type Request struct {
 	// Validation of the parameters is the responsibility of the user-defined
 	// handlers.
 	Parameters json.RawMessage `json:"params,omitempty"`
+}
+
+// Validate returns an error if r is invalid.
+func (r Request) Validate() error {
+	if r.Version != jsonRPCVersion {
+		return errors.New(`request version must be "2.0"`)
+	}
+
+	if err := validateRequestID(r.ID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateRequestID returns an error if the given request ID is not one of the
+// accepted types.
+func validateRequestID(id json.RawMessage) error {
+	var value interface{}
+	if err := json.Unmarshal(id, &value); err != nil {
+		return err
+	}
+
+	switch value.(type) {
+	case string:
+		return nil
+	case float64:
+		return nil
+	case nil:
+		return nil
+	default:
+		return fmt.Errorf("request ID must be a JSON string, number or null")
+	}
 }
 
 // RequestSet encapsulates one or more JSON-RPC requests that were parsed from a
