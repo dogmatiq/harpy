@@ -12,6 +12,25 @@ import (
 )
 
 var _ = Describe("type Request", func() {
+	Describe("func IsNotification()", func() {
+		It("returns false when a request ID is present", func() {
+			req := Request{
+				Version: "2.0",
+				ID:      json.RawMessage(``),
+			}
+
+			Expect(req.IsNotification()).To(BeFalse())
+		})
+
+		It("returns true when a request ID is not present", func() {
+			req := Request{
+				Version: "2.0",
+			}
+
+			Expect(req.IsNotification()).To(BeTrue())
+		})
+	})
+
 	Describe("func Validate()", func() {
 		DescribeTable(
 			"it returns nil when the request is valid",
@@ -27,6 +46,7 @@ var _ = Describe("type Request", func() {
 			Entry("integer ID", json.RawMessage(`1`)),
 			Entry("decimal ID", json.RawMessage(`1.2`)),
 			Entry("null ID", json.RawMessage(`null`)),
+			Entry("absent ID", nil),
 		)
 
 		It("returns an error if the JSON-RPC version is incorrect", func() {

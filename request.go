@@ -55,14 +55,22 @@ type Request struct {
 	Parameters json.RawMessage `json:"params,omitempty"`
 }
 
+// IsNotification returns true if r is a notification, as opposed to an RPC call
+// that expects a response.
+func (r Request) IsNotification() bool {
+	return r.ID == nil
+}
+
 // Validate returns an error if r is invalid.
 func (r Request) Validate() error {
 	if r.Version != jsonRPCVersion {
 		return errors.New(`request version must be "2.0"`)
 	}
 
-	if err := validateRequestID(r.ID); err != nil {
-		return err
+	if r.ID != nil {
+		if err := validateRequestID(r.ID); err != nil {
+			return err
+		}
 	}
 
 	return nil
