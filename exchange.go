@@ -6,7 +6,7 @@ import (
 
 // Responder is a function invoked by Exchange() or ExchangeBatch() in order to
 // send the response for one request within a batch.
-type Responder func(req Request, res Response, isLast bool) error
+type Responder func(req Request, res Response) error
 
 // Exchange performs a JSON-RPC exchange, whether a for single request or a
 // batch of requests.
@@ -127,7 +127,6 @@ func ExchangeBatch(
 	return nil, false, respond(
 		req,
 		p.Call(ctx, req),
-		true,
 	)
 }
 
@@ -176,12 +175,10 @@ func exchangeMany(
 
 	// Wait for each pending goroutine to complete.
 	for x := range exchanges {
-		pending--
-
 		if err == nil && !x.request.IsNotification() {
 			// We only call respond() if the request is a call and no prior
 			// error has occurred.
-			err = respond(x.request, x.response, pending == 0)
+			err = respond(x.request, x.response)
 
 			if err != nil {
 				// We've seen an error for the first time. We cancel the context
@@ -191,6 +188,7 @@ func exchangeMany(
 			}
 		}
 
+		pending--
 		if pending == 0 {
 			break
 		}

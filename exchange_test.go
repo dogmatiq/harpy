@@ -60,7 +60,7 @@ var _ = Describe("func Exchange()", func() {
 			}
 		}
 
-		respond = func(Request, Response, bool) error {
+		respond = func(Request, Response) error {
 			Fail("unexpected call to respond()")
 			return nil
 		}
@@ -190,11 +190,7 @@ var _ = Describe("func Exchange()", func() {
 			When("the request is a call", func() {
 				It("passes the request to the pipeline and invokes respond() with the response", func() {
 					called := false
-					respond = func(
-						req Request,
-						res Response,
-						isLast bool,
-					) error {
+					respond = func(req Request, res Response) error {
 						called = true
 
 						Expect(req).To(Equal(requestA))
@@ -205,7 +201,6 @@ var _ = Describe("func Exchange()", func() {
 								Result:    json.RawMessage(`"result"`),
 							},
 						))
-						Expect(isLast).To(BeTrue())
 
 						return nil
 					}
@@ -224,11 +219,7 @@ var _ = Describe("func Exchange()", func() {
 
 				When("respond() returns an error", func() {
 					BeforeEach(func() {
-						respond = func(
-							Request,
-							Response,
-							bool,
-						) error {
+						respond = func(Request, Response) error {
 							return errors.New("<error>")
 						}
 					})
@@ -276,11 +267,7 @@ var _ = Describe("func Exchange()", func() {
 
 		When("the batch contains a multiple requests", func() {
 			BeforeEach(func() {
-				respond = func(
-					Request,
-					Response,
-					bool,
-				) error {
+				respond = func(Request, Response) error {
 					return nil
 				}
 			})
@@ -339,11 +326,7 @@ var _ = Describe("func Exchange()", func() {
 					exchanges []exchange
 				)
 
-				respond = func(
-					req Request,
-					res Response,
-					_ bool,
-				) error {
+				respond = func(req Request, res Response) error {
 					m.Lock()
 					defer m.Unlock()
 
@@ -380,34 +363,9 @@ var _ = Describe("func Exchange()", func() {
 				))
 			})
 
-			It("sets the isLast parameter of respond()", func() {
-				count := 0
-
-				respond = func(
-					_ Request,
-					_ Response,
-					isLast bool,
-				) error {
-					count++
-					Expect(isLast).To(Equal(count == 2)) // there are 2 calls and 1 notification
-					return nil
-				}
-
-				Exchange(
-					context.Background(),
-					requestSet,
-					pipeline,
-					respond,
-				)
-			})
-
 			When("respond() returns an error", func() {
 				BeforeEach(func() {
-					respond = func(
-						Request,
-						Response,
-						bool,
-					) error {
+					respond = func(Request, Response) error {
 						return errors.New("<error>")
 					}
 				})
@@ -492,11 +450,7 @@ var _ = Describe("func Exchange()", func() {
 
 				It("does not call respond() again", func() {
 					called := false
-					respond = func(
-						Request,
-						Response,
-						bool,
-					) error {
+					respond = func(Request, Response) error {
 						Expect(called).To(BeFalse())
 						called = true
 						return errors.New("<error>")
