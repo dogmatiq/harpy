@@ -13,6 +13,10 @@ type PipelineStage interface {
 	Notify(context.Context, Request)
 }
 
+// Responder is a function invoked by Exchange() or ExchangeBatch() in order to
+// send the response for one request within a batch.
+type Responder func(req Request, res Response, isLast bool) error
+
 // Exchange performs a JSON-RPC exchange, whether a for single request or a
 // batch of requests.
 //
@@ -36,7 +40,7 @@ func Exchange(
 	ctx context.Context,
 	rs RequestSet,
 	p PipelineStage,
-	respond func(Request, Response) error,
+	respond Responder,
 ) (res Response, single bool, err error) {
 	if rs.IsBatch {
 		return ExchangeBatch(ctx, rs.Requests, p, respond)
@@ -99,7 +103,7 @@ func ExchangeBatch(
 	ctx context.Context,
 	requests []Request,
 	p PipelineStage,
-	respond func(Request, Response) error,
+	respond Responder,
 ) (res Response, single bool, err error) {
 	count := len(requests)
 
@@ -132,6 +136,7 @@ func ExchangeBatch(
 	return nil, false, respond(
 		req,
 		p.Call(ctx, req),
+		true,
 	)
 }
 
@@ -140,7 +145,7 @@ func exchangeMany(
 	ctx context.Context,
 	requests []Request,
 	p PipelineStage,
-	respond func(Request, Response) error,
+	respond Responder,
 ) error {
 	type exchange struct {
 		request  Request
@@ -180,10 +185,12 @@ func exchangeMany(
 
 	// Wait for each pending goroutine to complete.
 	for x := range exchanges {
+		pending--
+
 		if err == nil && !x.request.IsNotification() {
 			// We only call respond() if the request is a call and no prior
 			// error has occurred.
-			err = respond(x.request, x.response)
+			err = respond(x.request, x.response, pending == 0)
 
 			if err != nil {
 				// We've seen an error for the first time. We cancel the context
@@ -193,7 +200,6 @@ func exchangeMany(
 			}
 		}
 
-		pending--
 		if pending == 0 {
 			break
 		}
