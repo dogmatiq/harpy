@@ -66,28 +66,39 @@ var _ = Describe("func Exchange()", func() {
 		}
 	})
 
+	It("returns a single error response if the request set is invalid", func() {
+		requestSet = RequestSet{
+			IsBatch: true,
+		}
+
+		res, single, err := Exchange(
+			context.Background(),
+			requestSet,
+			pipeline,
+			respond,
+		)
+
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(single).To(BeTrue())
+		Expect(res).To(Equal(
+			ErrorResponse{
+				Version:   "2.0",
+				RequestID: nil,
+				Error: ErrorInfo{
+					Code:    InvalidRequestCode,
+					Message: "batch requests must contain at least one request",
+					Data:    nil,
+				},
+			},
+		))
+	})
+
 	When("the request set is a single request", func() {
 		BeforeEach(func() {
 			requestSet = RequestSet{
 				Requests: []Request{requestA},
 				IsBatch:  false,
 			}
-		})
-
-		It("panics if there are no requests", func() {
-			requestSet.Requests = nil
-
-			Expect(func() {
-				Exchange(context.Background(), requestSet, pipeline, respond)
-			}).To(PanicWith("non-batch request sets must contain exactly one request"))
-		})
-
-		It("panics if there is more than one request", func() {
-			requestSet.Requests = []Request{Request{}, Request{}}
-
-			Expect(func() {
-				Exchange(context.Background(), requestSet, pipeline, respond)
-			}).To(PanicWith("non-batch request sets must contain exactly one request"))
 		})
 
 		When("the request is a call", func() {
@@ -153,33 +164,6 @@ var _ = Describe("func Exchange()", func() {
 				Requests: []Request{requestA, requestB, requestC},
 				IsBatch:  true,
 			}
-		})
-
-		When("the batch is empty", func() {
-			It("returns a single error response", func() {
-				requestSet.Requests = nil
-
-				res, single, err := Exchange(
-					context.Background(),
-					requestSet,
-					pipeline,
-					respond,
-				)
-
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(single).To(BeTrue())
-				Expect(res).To(Equal(
-					ErrorResponse{
-						Version:   "2.0",
-						RequestID: nil,
-						Error: ErrorInfo{
-							Code:    InvalidRequestCode,
-							Message: "request batches must contain at least one request",
-							Data:    nil,
-						},
-					},
-				))
-			})
 		})
 
 		When("the batch contains a single request", func() {

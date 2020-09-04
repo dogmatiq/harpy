@@ -33,19 +33,25 @@ func Exchange(
 	p PipelineStage,
 	respond Responder,
 ) (res Response, single bool, err error) {
+	if err := rs.Validate(); err != nil {
+		return ErrorResponse{
+			Version: jsonRPCVersion,
+			Error: ErrorInfo{
+				Code:    InvalidRequestCode,
+				Message: err.Error(),
+			},
+		}, true, nil
+	}
+
 	if rs.IsBatch {
-		return ExchangeBatch(ctx, rs.Requests, p, respond)
+		return exchangeBatch(ctx, rs.Requests, p, respond)
 	}
 
-	if len(rs.Requests) != 1 {
-		panic("non-batch request sets must contain exactly one request")
-	}
-
-	res, ok := ExchangeSingle(ctx, rs.Requests[0], p)
+	res, ok := exchangeSingle(ctx, rs.Requests[0], p)
 	return res, ok, nil
 }
 
-// ExchangeSingle performs a JSON-RPC exchange for a single request. That is, a
+// exchangeSingle performs a JSON-RPC exchange for a single request. That is, a
 // request that is not part of a batch.
 //
 // The pipeline stage p is called to produce a response.
@@ -57,7 +63,7 @@ func Exchange(
 // If ctx is canceled or exceeds its deadline, p is responsible for aborting
 // execution and returning a suitable JSON-RPC response describing the
 // cancelation.
-func ExchangeSingle(
+func exchangeSingle(
 	ctx context.Context,
 	req Request,
 	p PipelineStage,
@@ -70,7 +76,7 @@ func ExchangeSingle(
 	return p.Call(ctx, req), true
 }
 
-// ExchangeBatch performs a JSON-RPC exchange for a batch request.
+// exchangeBatch performs a JSON-RPC exchange for a batch request.
 //
 // The pipeline stage p is called to produce a response for each of the requests
 // in the batch.
@@ -90,25 +96,13 @@ func ExchangeSingle(
 // If ctx is canceled or exceeds its deadline, p is responsible for aborting
 // execution and returning a suitable JSON-RPC response describing the
 // cancelation. err is NOT set to the context's error.
-func ExchangeBatch(
+func exchangeBatch(
 	ctx context.Context,
 	requests []Request,
 	p PipelineStage,
 	respond Responder,
 ) (res Response, single bool, err error) {
-	count := len(requests)
-
-	if count == 0 {
-		return ErrorResponse{
-			Version: jsonRPCVersion,
-			Error: ErrorInfo{
-				Code:    InvalidRequestCode,
-				Message: "request batches must contain at least one request",
-			},
-		}, true, nil
-	}
-
-	if count > 1 {
+	if len(requests) > 1 {
 		// If there is actually more than one request then we handle each in its
 		// own goroutine.
 		return nil, false, exchangeMany(ctx, requests, p, respond)
