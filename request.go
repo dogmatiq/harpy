@@ -158,8 +158,7 @@ func (rs RequestSet) Validate() error {
 func parseSingleRequest(r *bufio.Reader) (RequestSet, error) {
 	var req Request
 
-	dec := json.NewDecoder(r)
-	if err := dec.Decode(&req); err != nil {
+	if err := parse(r, &req); err != nil {
 		return RequestSet{}, err
 	}
 
@@ -172,8 +171,7 @@ func parseSingleRequest(r *bufio.Reader) (RequestSet, error) {
 func parseBatchRequest(r *bufio.Reader) (RequestSet, error) {
 	var batch []Request
 
-	dec := json.NewDecoder(r)
-	if err := dec.Decode(&batch); err != nil {
+	if err := parse(r, &batch); err != nil {
 		return RequestSet{}, err
 	}
 
@@ -181,4 +179,11 @@ func parseBatchRequest(r *bufio.Reader) (RequestSet, error) {
 		Requests: batch,
 		IsBatch:  true,
 	}, nil
+}
+
+func parse(r io.Reader, v interface{}) error {
+	dec := json.NewDecoder(r)
+	dec.DisallowUnknownFields()
+
+	return dec.Decode(&v)
 }
