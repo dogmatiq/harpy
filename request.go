@@ -136,6 +136,25 @@ func ParseRequestSet(r io.Reader) (RequestSet, error) {
 	}
 }
 
+// Validate returns an error if any of the requests in the set are invalid.
+func (rs RequestSet) Validate() error {
+	if rs.IsBatch {
+		if len(rs.Requests) == 0 {
+			return errors.New("batch requests must contain at least one request")
+		}
+	} else if len(rs.Requests) != 1 {
+		return errors.New("non-batch request sets must contain exactly one request")
+	}
+
+	for _, req := range rs.Requests {
+		if err := req.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func parseSingleRequest(r *bufio.Reader) (RequestSet, error) {
 	var req Request
 

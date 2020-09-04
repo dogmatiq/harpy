@@ -78,51 +78,52 @@ var _ = Describe("type Request", func() {
 	})
 })
 
-var _ = Describe("func ParseRequestSet()", func() {
-	It("parses a single request", func() {
-		r := strings.NewReader(`{
+var _ = Describe("type RequestSet", func() {
+	Describe("func ParseRequestSet()", func() {
+		It("parses a single request", func() {
+			r := strings.NewReader(`{
 				"jsonrpc": "2.0",
 				"id": 123,
 				"method": "<method>",
 				"params": [1, 2, 3]
 			}`)
 
-		rs, err := ParseRequestSet(r)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(rs.IsBatch).To(BeFalse())
-		Expect(rs.Requests).To(ConsistOf(
-			Request{
-				Version:    "2.0",
-				ID:         json.RawMessage(`123`),
-				Method:     "<method>",
-				Parameters: json.RawMessage(`[1, 2, 3]`),
-			},
-		))
-	})
+			rs, err := ParseRequestSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeFalse())
+			Expect(rs.Requests).To(ConsistOf(
+				Request{
+					Version:    "2.0",
+					ID:         json.RawMessage(`123`),
+					Method:     "<method>",
+					Parameters: json.RawMessage(`[1, 2, 3]`),
+				},
+			))
+		})
 
-	It("parses a batch request with a single request", func() {
-		r := strings.NewReader(`[{
+		It("parses a batch request with a single request", func() {
+			r := strings.NewReader(`[{
 				"jsonrpc": "2.0",
 				"id": 123,
 				"method": "<method>",
 				"params": [1, 2, 3]
 			}]`)
 
-		rs, err := ParseRequestSet(r)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(rs.IsBatch).To(BeTrue())
-		Expect(rs.Requests).To(ConsistOf(
-			Request{
-				Version:    "2.0",
-				ID:         json.RawMessage(`123`),
-				Method:     "<method>",
-				Parameters: json.RawMessage(`[1, 2, 3]`),
-			},
-		))
-	})
+			rs, err := ParseRequestSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeTrue())
+			Expect(rs.Requests).To(ConsistOf(
+				Request{
+					Version:    "2.0",
+					ID:         json.RawMessage(`123`),
+					Method:     "<method>",
+					Parameters: json.RawMessage(`[1, 2, 3]`),
+				},
+			))
+		})
 
-	It("parses a batch request with multiple requests", func() {
-		r := strings.NewReader(`[{
+		It("parses a batch request with multiple requests", func() {
+			r := strings.NewReader(`[{
 				"jsonrpc": "2.0",
 				"id": 123,
 				"method": "<method-a>",
@@ -134,67 +135,122 @@ var _ = Describe("func ParseRequestSet()", func() {
 				"params": [4, 5, 6]
 			}]`)
 
-		rs, err := ParseRequestSet(r)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(rs.IsBatch).To(BeTrue())
-		Expect(rs.Requests).To(ConsistOf(
-			Request{
-				Version:    "2.0",
-				ID:         json.RawMessage(`123`),
-				Method:     "<method-a>",
-				Parameters: json.RawMessage(`[1, 2, 3]`),
-			},
-			Request{
-				Version:    "2.0",
-				ID:         json.RawMessage(`456`),
-				Method:     "<method-b>",
-				Parameters: json.RawMessage(`[4, 5, 6]`),
-			},
-		))
+			rs, err := ParseRequestSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeTrue())
+			Expect(rs.Requests).To(ConsistOf(
+				Request{
+					Version:    "2.0",
+					ID:         json.RawMessage(`123`),
+					Method:     "<method-a>",
+					Parameters: json.RawMessage(`[1, 2, 3]`),
+				},
+				Request{
+					Version:    "2.0",
+					ID:         json.RawMessage(`456`),
+					Method:     "<method-b>",
+					Parameters: json.RawMessage(`[4, 5, 6]`),
+				},
+			))
+		})
+
+		It("ignores leading whitespace", func() {
+			r := strings.NewReader(`    []`)
+
+			rs, err := ParseRequestSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeTrue())
+		})
+
+		It("omits the ID field if it is not present in the request", func() {
+			r := strings.NewReader(`{}`)
+
+			rs, err := ParseRequestSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.Requests[0].ID).To(BeNil())
+		})
+
+		It("includes the ID field if it set to NULL", func() {
+			r := strings.NewReader(`{"id": null}`)
+
+			rs, err := ParseRequestSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.Requests[0].ID).To(Equal(json.RawMessage(`null`)))
+		})
+
+		It("returns an error if the request can not be read", func() {
+			r := strings.NewReader(``)
+
+			_, err := ParseRequestSet(r)
+			Expect(err).To(Equal(io.EOF))
+		})
+
+		It("returns an error if a single request is malformed", func() {
+			r := strings.NewReader(`""`) // not an array or object
+
+			_, err := ParseRequestSet(r)
+			Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
+		})
+
+		It("returns an error if a request within a batch malformed", func() {
+			r := strings.NewReader(`[""]`) // not an array or object
+
+			_, err := ParseRequestSet(r)
+			Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
+		})
 	})
 
-	It("ignores leading whitespace", func() {
-		r := strings.NewReader(`    []`)
+	Describe("func Validate()", func() {
+		It("returns nil if all requests are valid", func() {
+			rs := RequestSet{
+				Requests: []Request{
+					{Version: "2.0"},
+					{Version: "2.0"},
+				},
+				IsBatch: true,
+			}
 
-		rs, err := ParseRequestSet(r)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(rs.IsBatch).To(BeTrue())
-	})
+			Expect(rs.Validate()).ShouldNot(HaveOccurred())
+		})
 
-	It("omits the ID field if it is not present in the request", func() {
-		r := strings.NewReader(`{}`)
+		It("returns an error if any of the requests is invalid", func() {
+			rs := RequestSet{
+				Requests: []Request{
+					{Version: "2.0"},
+					{},
+				},
+				IsBatch: true,
+			}
 
-		rs, err := ParseRequestSet(r)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(rs.Requests[0].ID).To(BeNil())
-	})
+			Expect(rs.Validate()).To(MatchError(`request version must be "2.0"`))
+		})
 
-	It("includes the ID field if it set to NULL", func() {
-		r := strings.NewReader(`{"id": null}`)
+		It("returns an error if a batch contains no requests", func() {
+			rs := RequestSet{
+				IsBatch: true,
+			}
 
-		rs, err := ParseRequestSet(r)
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(rs.Requests[0].ID).To(Equal(json.RawMessage(`null`)))
-	})
+			Expect(rs.Validate()).To(MatchError(`batch requests must contain at least one request`))
+		})
 
-	It("returns an error if the request can not be read", func() {
-		r := strings.NewReader(``)
+		It("returns an error if a non-batch contains no requests", func() {
+			rs := RequestSet{
+				IsBatch: false,
+			}
 
-		_, err := ParseRequestSet(r)
-		Expect(err).To(Equal(io.EOF))
-	})
+			Expect(rs.Validate()).To(MatchError(`non-batch request sets must contain exactly one request`))
+		})
 
-	It("returns an error if a single request is malformed", func() {
-		r := strings.NewReader(`""`) // not an array or object
+		It("returns an error if a non-batch contains more than one requests", func() {
+			rs := RequestSet{
+				Requests: []Request{
+					{Version: "2.0"},
+					{Version: "2.0"},
+				},
+				IsBatch: false,
+			}
 
-		_, err := ParseRequestSet(r)
-		Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
-	})
-
-	It("returns an error if a request within a batch malformed", func() {
-		r := strings.NewReader(`[""]`) // not an array or object
-
-		_, err := ParseRequestSet(r)
-		Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
+			Expect(rs.Validate()).To(MatchError(`non-batch request sets must contain exactly one request`))
+		})
 	})
 })
