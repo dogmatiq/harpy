@@ -9,8 +9,8 @@ import (
 	"github.com/dogmatiq/dodeca/logging"
 )
 
-// A Handler is a user-defined function that produces a result value in response
-// to a JSON-RPC request.
+// Handler is a function that produces a result value in response to a
+// JSON-RPC request.
 //
 // res is the result value to include in the JSON-RPC response (it is not the
 // JSON-RPC response itself).
@@ -22,86 +22,18 @@ import (
 // always ignored.
 type Handler func(ctx context.Context, req Request) (res interface{}, err error)
 
-// Invoker invokes a handler with a JSON-RPC request in order to obtain the
-// JSON-RPC response.
-type Invoker struct {
-	// Handler is the function that handles the request.
+// HandlerInvoker is a PipelineStage that dispatches to a Handler.
+type HandlerInvoker struct {
+	// Handle is the function that handles the request.
 	Handler Handler
 
 	// Logger is the target for messages about the requests and responses.
 	Logger logging.Logger
 }
 
-// Invoke dispatches a request to the handler and returns a JSON-RPC response
-// containing the handler's result.
-//
-// If req is a call, ok is true and res is the JSON-RPC response to send. If req
-// is a notification, ok is false and res is unused.
-func (i *Invoker) Invoke(ctx context.Context, req Request) (res Response, ok bool) {
-	if req.IsNotification() {
-		i.notify(ctx, req)
-		return nil, false
-	}
-
-	return i.call(ctx, req), true
-}
-
-// notify invokes the handler for a notification request.
-func (i *Invoker) notify(ctx context.Context, req Request) {
-	if req.Parameters == nil {
-		logging.Debug(
-			i.Logger,
-			`▼ NOTIFY %s WITHOUT PARAMETERS`,
-			req.Method,
-		)
-	} else {
-		logging.Debug(
-			i.Logger,
-			`▼ NOTIFY %s WITH PARAMETERS %s`,
-			req.Method,
-			req.Parameters,
-		)
-	}
-
-	_, err := i.Handler(ctx, req)
-
-	if err == nil {
-		logging.Log(
-			i.Logger,
-			`✓ NOTIFY %s`,
-			req.Method,
-		)
-	} else {
-		logging.Log(
-			i.Logger,
-			`✗ NOTIFY %s  %s`,
-			req.Method,
-			err,
-		)
-	}
-}
-
-// notify invokes the handler for a call request.
-func (i *Invoker) call(ctx context.Context, req Request) Response {
-	if req.Parameters == nil {
-		logging.Debug(
-			i.Logger,
-			`▼ CALL[%s] %s WITHOUT PARAMETERS`,
-			req.ID,
-			req.Method,
-		)
-	} else {
-		logging.Debug(
-			i.Logger,
-			`▼ CALL[%s] %s WITH PARAMETERS %s`,
-			req.ID,
-			req.Method,
-			req.Parameters,
-		)
-	}
-
+// Call handles a call request and returns the response.
+func (i *HandlerInvoker) Call(ctx context.Context, req Request) Response {
 	result, err := i.Handler(ctx, req)
-
 	if err != nil {
 		return i.buildErrorResponse(req, err)
 	}
@@ -111,7 +43,7 @@ func (i *Invoker) call(ctx context.Context, req Request) Response {
 
 // buildSuccessResponse returns the JSON-RPC response to send after successful
 // handling of a call.
-func (i *Invoker) buildSuccessResponse(req Request, result interface{}) Response {
+func (i *HandlerInvoker) buildSuccessResponse(req Request, result interface{}) Response {
 	var resultJSON json.RawMessage
 	if result != nil {
 		var err error
@@ -131,23 +63,6 @@ func (i *Invoker) buildSuccessResponse(req Request, result interface{}) Response
 		req.Method,
 	)
 
-	if result == nil {
-		logging.Debug(
-			i.Logger,
-			`▲ CALL[%s] %s SUCCESS WITHOUT RESULT`,
-			req.ID,
-			req.Method,
-		)
-	} else {
-		logging.Debug(
-			i.Logger,
-			`▲ CALL[%s] %s SUCCESS WITH RESULT %s`,
-			req.ID,
-			req.Method,
-			resultJSON,
-		)
-	}
-
 	return SuccessResponse{
 		Version:   jsonRPCVersion,
 		RequestID: req.ID,
@@ -157,49 +72,19 @@ func (i *Invoker) buildSuccessResponse(req Request, result interface{}) Response
 
 // buildErrorResponse returns the JSON-RPC response to send after a failure to
 // handle a call.
-func (i *Invoker) buildErrorResponse(req Request, err error) (res ErrorResponse) {
+func (i *HandlerInvoker) buildErrorResponse(req Request, err error) (res ErrorResponse) {
 	if nerr, ok := err.(Error); ok {
-		res = i.buildNativeErrorResponse(req, nerr)
+		return i.buildNativeErrorResponse(req, nerr)
 	} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		res = i.buildTransparentErrorResponse(req, err)
+		return i.buildTransparentErrorResponse(req, err)
 	} else {
-		res = i.buildOpaqueErrorResponse(req, err)
+		return i.buildOpaqueErrorResponse(req, err)
 	}
-
-	var desc string
-	if res.Error.Message == res.Error.Code.String() {
-		desc = res.Error.Message
-	} else {
-		desc = fmt.Sprintf("%s: %s", res.Error.Code, res.Error.Message)
-	}
-
-	if res.Error.Data == nil {
-		logging.Debug(
-			i.Logger,
-			`▲ CALL[%s] %s ERROR [%d] %s WITHOUT DATA`,
-			req.ID,
-			req.Method,
-			res.Error.Code,
-			desc,
-		)
-	} else {
-		logging.Debug(
-			i.Logger,
-			`▲ CALL[%s] %s ERROR [%d] %s WITH DATA %s`,
-			req.ID,
-			req.Method,
-			res.Error.Code,
-			desc,
-			res.Error.Data,
-		)
-	}
-
-	return res
 }
 
 // buildNativeErrorResponse returns the JSON-RPC response to send when a handler
 // returns a native JSON-RPC Error.
-func (i *Invoker) buildNativeErrorResponse(req Request, err Error) ErrorResponse {
+func (i *HandlerInvoker) buildNativeErrorResponse(req Request, err Error) ErrorResponse {
 	res := ErrorResponse{
 		Version:   jsonRPCVersion,
 		RequestID: req.ID,
@@ -237,7 +122,7 @@ func (i *Invoker) buildNativeErrorResponse(req Request, err Error) ErrorResponse
 // buildOpaqueErrorResponse returns the JSON-RPC response to return when the
 // handling of a request failed but the direct cause should NOT be reported to
 // the caller.
-func (i *Invoker) buildOpaqueErrorResponse(req Request, err error) ErrorResponse {
+func (i *HandlerInvoker) buildOpaqueErrorResponse(req Request, err error) ErrorResponse {
 	res := ErrorResponse{
 		Version:   jsonRPCVersion,
 		RequestID: req.ID,
@@ -263,7 +148,7 @@ func (i *Invoker) buildOpaqueErrorResponse(req Request, err error) ErrorResponse
 // buildTransparentErrorResponse returns the JSON-RPC response to return when
 // the handling of a request failed and it is safe to inform the caller of the
 // direct cause.
-func (i *Invoker) buildTransparentErrorResponse(req Request, err error) ErrorResponse {
+func (i *HandlerInvoker) buildTransparentErrorResponse(req Request, err error) ErrorResponse {
 	res := ErrorResponse{
 		Version:   jsonRPCVersion,
 		RequestID: req.ID,
@@ -284,4 +169,25 @@ func (i *Invoker) buildTransparentErrorResponse(req Request, err error) ErrorRes
 	)
 
 	return res
+}
+
+// Notify handles a notification request.
+func (i *HandlerInvoker) Notify(ctx context.Context, req Request) {
+	_, err := i.Handler(ctx, req)
+	if err != nil {
+		logging.Log(
+			i.Logger,
+			`✗ NOTIFY %s  %s`,
+			req.Method,
+			err,
+		)
+
+		return
+	}
+
+	logging.Log(
+		i.Logger,
+		`✓ NOTIFY %s`,
+		req.Method,
+	)
 }
