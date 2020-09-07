@@ -33,14 +33,15 @@ var _ = Describe("type Request", func() {
 
 	Describe("func Validate()", func() {
 		DescribeTable(
-			"it returns nil when the request is valid",
+			"it returns true when the request is valid",
 			func(id json.RawMessage) {
 				req := Request{
 					Version: "2.0",
 					ID:      id,
 				}
 
-				Expect(req.Validate()).To(BeNil())
+				_, ok := req.Validate()
+				Expect(ok).To(BeTrue())
 			},
 			Entry("string ID", json.RawMessage(`"<id>"`)),
 			Entry("integer ID", json.RawMessage(`1`)),
@@ -55,7 +56,14 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`1`),
 			}
 
-			Expect(req.Validate()).To(MatchError(`request version must be "2.0"`))
+			err, ok := req.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidRequestCode,
+					WithMessage(`request version must be "2.0"`),
+				),
+			))
 		})
 
 		It("returns an error if the request ID is an invalid type", func() {
@@ -64,7 +72,14 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{}`),
 			}
 
-			Expect(req.Validate()).To(MatchError("request ID must be a JSON string, number or null"))
+			err, ok := req.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidRequestCode,
+					WithMessage(`request ID must be a JSON string, number or null`),
+				),
+			))
 		})
 
 		It("returns an error if the request ID is not valid JSON", func() {
@@ -73,7 +88,10 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{`),
 			}
 
-			Expect(req.Validate()).To(MatchError("unexpected end of JSON input"))
+			err, ok := req.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err.Code()).To(Equal(ParseErrorCode))
+			Expect(err.Unwrap()).To(MatchError("unexpected end of JSON input"))
 		})
 	})
 })
@@ -189,19 +207,31 @@ var _ = Describe("type RequestSet", func() {
 			r := strings.NewReader(`""`) // not an array or object
 
 			_, err := ParseRequestSet(r)
-			Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
+
+			var e Error
+			Expect(err).To(BeAssignableToTypeOf(e))
+
+			e = err.(Error)
+			Expect(e.Code()).To(Equal(ParseErrorCode))
+			Expect(e.Unwrap()).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
 		})
 
-		It("returns an error if a request within a batch malformed", func() {
+		It("returns an error if a request within a batch is malformed", func() {
 			r := strings.NewReader(`[""]`) // not an array or object
 
 			_, err := ParseRequestSet(r)
-			Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
+
+			var e Error
+			Expect(err).To(BeAssignableToTypeOf(e))
+
+			e = err.(Error)
+			Expect(e.Code()).To(Equal(ParseErrorCode))
+			Expect(e.Unwrap()).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
 		})
 	})
 
 	Describe("func Validate()", func() {
-		It("returns nil if all requests are valid", func() {
+		It("returns true if all requests are valid", func() {
 			rs := RequestSet{
 				Requests: []Request{
 					{Version: "2.0"},
@@ -210,7 +240,8 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			Expect(rs.Validate()).ShouldNot(HaveOccurred())
+			_, ok := rs.Validate()
+			Expect(ok).To(BeTrue())
 		})
 
 		It("returns an error if any of the requests is invalid", func() {
@@ -222,7 +253,14 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			Expect(rs.Validate()).To(MatchError(`request version must be "2.0"`))
+			err, ok := rs.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidRequestCode,
+					WithMessage(`request version must be "2.0"`),
+				),
+			))
 		})
 
 		It("returns an error if a batch contains no requests", func() {
@@ -230,7 +268,14 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			Expect(rs.Validate()).To(MatchError(`batch requests must contain at least one request`))
+			err, ok := rs.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidRequestCode,
+					WithMessage(`batches must contain at least one request`),
+				),
+			))
 		})
 
 		It("returns an error if a non-batch contains no requests", func() {
@@ -238,7 +283,14 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			Expect(rs.Validate()).To(MatchError(`non-batch request sets must contain exactly one request`))
+			err, ok := rs.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidRequestCode,
+					WithMessage(`non-batch request sets must contain exactly one request`),
+				),
+			))
 		})
 
 		It("returns an error if a non-batch contains more than one requests", func() {
@@ -250,7 +302,14 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			Expect(rs.Validate()).To(MatchError(`non-batch request sets must contain exactly one request`))
+			err, ok := rs.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidRequestCode,
+					WithMessage(`non-batch request sets must contain exactly one request`),
+				),
+			))
 		})
 	})
 })

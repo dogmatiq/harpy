@@ -86,7 +86,7 @@ var _ = Describe("func Exchange()", func() {
 				RequestID: nil,
 				Error: ErrorInfo{
 					Code:    InvalidRequestCode,
-					Message: "batch requests must contain at least one request",
+					Message: "batches must contain at least one request",
 					Data:    nil,
 				},
 			},

@@ -3,9 +3,8 @@ package voorhees
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
+	"strings"
 	"unicode"
 )
 
@@ -61,38 +60,47 @@ func (r Request) IsNotification() bool {
 	return r.ID == nil
 }
 
-// Validate returns an error if r is invalid.
-func (r Request) Validate() error {
+// Validate returns true if the request is valid.
+//
+// If r is invalid it returns an Error describing the problem.
+func (r Request) Validate() (Error, bool) {
 	if r.Version != jsonRPCVersion {
-		return errors.New(`request version must be "2.0"`)
+		return NewErrorWithReservedCode(
+			InvalidRequestCode,
+			WithMessage(`request version must be "2.0"`),
+		), false
 	}
 
 	if r.ID != nil {
-		if err := validateRequestID(r.ID); err != nil {
-			return err
-		}
+		return validateRequestID(r.ID)
 	}
 
-	return nil
+	return Error{}, true
 }
 
-// validateRequestID returns an error if the given request ID is not one of the
+// validateRequestID returns false if the given request ID is not one of the
 // accepted types.
-func validateRequestID(id json.RawMessage) error {
+func validateRequestID(id json.RawMessage) (Error, bool) {
 	var value interface{}
 	if err := json.Unmarshal(id, &value); err != nil {
-		return err
+		return NewErrorWithReservedCode(
+			ParseErrorCode,
+			WithCause(err),
+		), false
 	}
 
 	switch value.(type) {
 	case string:
-		return nil
+		return Error{}, true
 	case float64:
-		return nil
+		return Error{}, true
 	case nil:
-		return nil
+		return Error{}, true
 	default:
-		return fmt.Errorf("request ID must be a JSON string, number or null")
+		return NewErrorWithReservedCode(
+			InvalidRequestCode,
+			WithMessage(`request ID must be a JSON string, number or null`),
+		), false
 	}
 }
 
@@ -111,8 +119,11 @@ type RequestSet struct {
 
 // ParseRequestSet reads and parses a JSON-RPC request or request batch from r.
 //
-// It returns an error if the request set is malformed, but the requests are not
-// validated.
+// If there is a problem parsing the request or the request is malformed, an
+// Error is returned. Any other non-nil error should be considered an IO error.
+//
+// On success it returns a request set containing well-formed (but not
+// necessarily valid) requests.
 func ParseRequestSet(r io.Reader) (RequestSet, error) {
 	br := bufio.NewReader(r)
 
@@ -136,23 +147,31 @@ func ParseRequestSet(r io.Reader) (RequestSet, error) {
 	}
 }
 
-// Validate returns an error if any of the requests in the set are invalid.
-func (rs RequestSet) Validate() error {
+// Validate returns true if the request set is valid.
+//
+// If rs is invalid it returns an Error describing the problem.
+func (rs RequestSet) Validate() (Error, bool) {
 	if rs.IsBatch {
 		if len(rs.Requests) == 0 {
-			return errors.New("batch requests must contain at least one request")
+			return NewErrorWithReservedCode(
+				InvalidRequestCode,
+				WithMessage("batches must contain at least one request"),
+			), false
 		}
 	} else if len(rs.Requests) != 1 {
-		return errors.New("non-batch request sets must contain exactly one request")
+		return NewErrorWithReservedCode(
+			InvalidRequestCode,
+			WithMessage("non-batch request sets must contain exactly one request"),
+		), false
 	}
 
 	for _, req := range rs.Requests {
-		if err := req.Validate(); err != nil {
-			return err
+		if err, ok := req.Validate(); !ok {
+			return err, false
 		}
 	}
 
-	return nil
+	return Error{}, true
 }
 
 func parseSingleRequest(r *bufio.Reader) (RequestSet, error) {
@@ -185,5 +204,35 @@ func parse(r io.Reader, v interface{}) error {
 	dec := json.NewDecoder(r)
 	dec.DisallowUnknownFields()
 
-	return dec.Decode(&v)
+	err := dec.Decode(&v)
+
+	if isJSONError(err) {
+		return NewErrorWithReservedCode(
+			ParseErrorCode,
+			WithCause(err),
+		)
+	}
+
+	return err
+}
+
+// isJSONError returns true if err indicates a JSON parse failure of some kind.
+func isJSONError(err error) bool {
+	switch err.(type) {
+	case nil:
+		return false
+	case *json.SyntaxError:
+		return true
+	case *json.UnmarshalFieldError:
+		return true
+	case *json.UnmarshalTypeError:
+		return true
+	default:
+		// Unfortunately, some JSON errors do not have distinct types. For
+		// example, when parsing using a decoder with DisallowUnknownFields()
+		// enabled an unexpected field is reported using the equivalent of:
+		//
+		//   errors.New(`json: unknown field "<field name>"`)
+		return strings.HasPrefix(err.Error(), "json:")
+	}
 }

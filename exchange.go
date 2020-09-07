@@ -33,12 +33,12 @@ func Exchange(
 	p PipelineStage,
 	respond Responder,
 ) (res Response, single bool, err error) {
-	if err := rs.Validate(); err != nil {
+	if err, ok := rs.Validate(); !ok {
 		return ErrorResponse{
 			Version: jsonRPCVersion,
 			Error: ErrorInfo{
-				Code:    InvalidRequestCode,
-				Message: err.Error(),
+				Code:    err.Code(),
+				Message: err.Message(),
 			},
 		}, true, nil
 	}
