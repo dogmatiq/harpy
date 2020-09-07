@@ -2,9 +2,7 @@ package voorhees
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/dogmatiq/dodeca/logging"
 )
@@ -44,16 +42,9 @@ func (i *HandlerInvoker) Call(ctx context.Context, req Request) Response {
 // buildSuccessResponse returns the JSON-RPC response to send after successful
 // handling of a call.
 func (i *HandlerInvoker) buildSuccessResponse(req Request, result interface{}) Response {
-	var resultJSON json.RawMessage
-	if result != nil {
-		var err error
-		resultJSON, err = json.Marshal(result)
-		if err != nil {
-			return i.buildErrorResponse(
-				req,
-				fmt.Errorf("handler succeeded but the result could not be marshaled: %w", err),
-			)
-		}
+	res, err := NewSuccessResponse(req.ID, result)
+	if err != nil {
+		return i.buildErrorResponse(req, err)
 	}
 
 	logging.Log(
@@ -63,11 +54,7 @@ func (i *HandlerInvoker) buildSuccessResponse(req Request, result interface{}) R
 		req.Method,
 	)
 
-	return SuccessResponse{
-		Version:   jsonRPCVersion,
-		RequestID: req.ID,
-		Result:    resultJSON,
-	}
+	return res
 }
 
 // buildErrorResponse returns the JSON-RPC response to send after a failure to
@@ -85,27 +72,9 @@ func (i *HandlerInvoker) buildErrorResponse(req Request, err error) (res ErrorRe
 // buildNativeErrorResponse returns the JSON-RPC response to send when a handler
 // returns a native JSON-RPC Error.
 func (i *HandlerInvoker) buildNativeErrorResponse(req Request, err Error) ErrorResponse {
-	res := ErrorResponse{
-		Version:   jsonRPCVersion,
-		RequestID: req.ID,
-		Error: ErrorInfo{
-			Code:    err.Code(),
-			Message: err.Message(),
-		},
-	}
-
-	if d := err.Data(); d != nil {
-		// The error contains a user-defined data value that needs to be
-		// serialized to JSON to be included in the response.
-		data, merr := json.Marshal(d)
-		if merr != nil {
-			return i.buildOpaqueErrorResponse(
-				req,
-				fmt.Errorf("handler failed (%s), but the user-defined error data could not be marshaled: %w", err, merr),
-			)
-		}
-
-		res.Error.Data = data
+	res, rerr := NewErrorResponse(req.ID, err)
+	if rerr != nil {
+		return i.buildOpaqueErrorResponse(req, rerr)
 	}
 
 	logging.Log(

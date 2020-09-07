@@ -124,7 +124,7 @@ var _ = Describe("type HandlerInvoker", func() {
 
 						Expect(logger.Messages()).To(ContainElement(
 							logging.BufferedLogMessage{
-								Message: `✗ CALL[123] <method>  [-32603] internal server error: handler succeeded but the result could not be marshaled: json: unsupported type: complex128  (cause not shown to caller)`,
+								Message: `✗ CALL[123] <method>  [-32603] internal server error: could not marshal success result value: json: unsupported type: complex128  (cause not shown to caller)`,
 								IsDebug: false,
 							},
 						))
@@ -220,7 +220,7 @@ var _ = Describe("type HandlerInvoker", func() {
 
 						Expect(logger.Messages()).To(ContainElement(
 							logging.BufferedLogMessage{
-								Message: `✗ CALL[123] <method>  [-32603] internal server error: handler failed ([789] <error>), but the user-defined error data could not be marshaled: json: unsupported type: complex128  (cause not shown to caller)`,
+								Message: `✗ CALL[123] <method>  [-32603] internal server error: could not marshal user-defined error data in [789] <error>: json: unsupported type: complex128  (cause not shown to caller)`,
 								IsDebug: false,
 							},
 						))
