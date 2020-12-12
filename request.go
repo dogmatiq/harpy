@@ -3,6 +3,7 @@ package voorhees
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"unicode"
@@ -120,7 +121,7 @@ type RequestSet struct {
 // ParseRequestSet reads and parses a JSON-RPC request or request batch from r.
 //
 // If there is a problem parsing the request or the request is malformed, an
-// Error is returned. Any other non-nil error should be considered an IO error.
+// Error is returned. Any other non-nil error should be considered an I/O error.
 //
 // On success it returns a request set containing well-formed (but not
 // necessarily valid) requests.
@@ -209,7 +210,7 @@ func parse(r io.Reader, v interface{}) error {
 	if isJSONError(err) {
 		return NewErrorWithReservedCode(
 			ParseErrorCode,
-			WithCause(err),
+			WithCause(fmt.Errorf("unable to parse request: %w", err)),
 		)
 	}
 

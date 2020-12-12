@@ -203,6 +203,19 @@ var _ = Describe("type RequestSet", func() {
 			Expect(err).To(Equal(io.EOF))
 		})
 
+		It("returns an error if the request has invalid syntax", func() {
+			r := strings.NewReader(`}`)
+
+			_, err := ParseRequestSet(r)
+
+			var e Error
+			Expect(err).To(BeAssignableToTypeOf(e))
+
+			e = err.(Error)
+			Expect(e.Code()).To(Equal(ParseErrorCode))
+			Expect(e.Unwrap()).To(MatchError("unable to parse request: invalid character '}' looking for beginning of value"))
+		})
+
 		It("returns an error if a single request is malformed", func() {
 			r := strings.NewReader(`""`) // not an array or object
 
@@ -213,7 +226,7 @@ var _ = Describe("type RequestSet", func() {
 
 			e = err.(Error)
 			Expect(e.Code()).To(Equal(ParseErrorCode))
-			Expect(e.Unwrap()).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
+			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type voorhees.Request"))
 		})
 
 		It("returns an error if a request within a batch is malformed", func() {
@@ -226,7 +239,7 @@ var _ = Describe("type RequestSet", func() {
 
 			e = err.(Error)
 			Expect(e.Code()).To(Equal(ParseErrorCode))
-			Expect(e.Unwrap()).To(MatchError("json: cannot unmarshal string into Go value of type voorhees.Request"))
+			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type voorhees.Request"))
 		})
 	})
 
