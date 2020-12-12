@@ -4,21 +4,25 @@ import (
 	"context"
 )
 
-// Responder is a function invoked by Exchange() or ExchangeBatch() in order to
-// send the response for one request within a batch.
+// Responder is a function invoked by Exchange() that sends a response
+// for one request within a batch.
 type Responder func(req Request, res Response) error
 
-// Exchange performs a JSON-RPC exchange, whether a for single request or a
+// Exchange performs a JSON-RPC exchange, whether for a single request or a
 // batch of requests.
 //
-// The pipeline stage p is called to produce a response for each request.
+// The appropriate method on the pipeline stage p is called to produce a
+// response for each request. If there are multiple requests each request is
+// passed through the pipeline on its own goroutine.
 //
-// The response may either be a single response, or a batch of response. If
-// single is true, res is a single response.
+// The response may either be a single response, or a batch of responses. If
+// single is true, res is a single response. Note that it's possible for a batch
+// request to produce a single response if the response is an error.
 //
-// If single is false, the response is a batch and respond() is called for each
-// response to be sent. Calls to respond() are serialized and do not require
-// further synchronization. respond() is not called for notification requests.
+// If single is false, the response is a batch and respond() has already been
+// called for each response to be sent. Calls to respond() are serialized and do
+// not require further synchronization. respond() is not called for notification
+// requests.
 //
 // If respond() returns an error, the context passed to p is canceled and err is
 // the error returned by respond(). Execution blocks until all goroutines are
@@ -54,7 +58,8 @@ func Exchange(
 // exchangeSingle performs a JSON-RPC exchange for a single request. That is, a
 // request that is not part of a batch.
 //
-// The pipeline stage p is called to produce a response.
+// The appropriate method on the pipeline stage p is called to produce a
+// response.
 //
 // If ok is true, the request is a call and res is the response to that call.
 //
@@ -78,16 +83,18 @@ func exchangeSingle(
 
 // exchangeBatch performs a JSON-RPC exchange for a batch request.
 //
-// The pipeline stage p is called to produce a response for each of the requests
-// in the batch.
+// The appropriate method on the pipeline stage p is called to produce a
+// response for each request. If there are multiple requests each request is
+// passed through the pipeline on its own goroutine.
 //
 // The response to a batch may either be a single response, or a batch of
-// response. If single is true, res is a single response that is relevant to the
-// entire batch.
+// responses. If single is true, res is a single response that is relevant to
+// the entire batch.
 //
-// If single is false, the response is a batch and respond() is called for each
-// response to be sent. Calls to respond() are serialized and do not require
-// further synchronization. respond() is not called for notification requests.
+// If single is false, the response is a batch and respond() has already been
+// called for each response to be sent. Calls to respond() are serialized and do
+// not require further synchronization. respond() is not called for notification
+// requests.
 //
 // If respond() returns an error, the context passed to p is canceled and err is
 // the error returned by respond(). Execution blocks until all goroutines are
