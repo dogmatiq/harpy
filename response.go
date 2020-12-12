@@ -1,7 +1,9 @@
 package voorhees
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -26,21 +28,26 @@ type SuccessResponse struct {
 }
 
 // NewSuccessResponse returns a new SuccessResponse containing the given result.
-func NewSuccessResponse(requestID json.RawMessage, result interface{}) (SuccessResponse, error) {
-	var data json.RawMessage
+//
+// If the result can not be marshaled an ErrorResponse is returned instead.
+func NewSuccessResponse(requestID json.RawMessage, result interface{}) Response {
+	res := SuccessResponse{
+		Version:   jsonRPCVersion,
+		RequestID: requestID,
+	}
+
 	if result != nil {
 		var err error
-		data, err = json.Marshal(result)
+		res.Result, err = json.Marshal(result)
 		if err != nil {
-			return SuccessResponse{}, fmt.Errorf("could not marshal success result value: %w", err)
+			return NewErrorResponse(
+				requestID,
+				fmt.Errorf("could not marshal success result value: %w", err),
+			)
 		}
 	}
 
-	return SuccessResponse{
-		Version:   jsonRPCVersion,
-		RequestID: requestID,
-		Result:    data,
-	}, nil
+	return res
 }
 
 func (SuccessResponse) isResponse() {}
@@ -57,31 +64,69 @@ type ErrorResponse struct {
 
 	// Error describes the error produced in response to the request.
 	Error ErrorInfo `json:"error"`
+
+	// ServerError provides more context to internal errors. The value is never
+	// sent to the client.
+	ServerError error `json:"-"`
 }
 
-// NewErrorResponse returns a new ErrorResponse for the given Error.
-func NewErrorResponse(requestID json.RawMessage, err Error) (ErrorResponse, error) {
+// NewErrorResponse returns a new ErrorResponse for the given error.
+func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
+	if err, ok := err.(Error); ok {
+		return newNativeErrorResponse(requestID, err)
+	}
+
+	if isInternalError(err) {
+		return ErrorResponse{
+			Version:   jsonRPCVersion,
+			RequestID: requestID,
+			Error: ErrorInfo{
+				Code:    InternalErrorCode,
+				Message: InternalErrorCode.String(),
+			},
+			ServerError: err,
+		}
+	}
+
+	return ErrorResponse{
+		Version:   jsonRPCVersion,
+		RequestID: requestID,
+		Error: ErrorInfo{
+			Code:    InternalErrorCode,
+			Message: err.Error(), // Note, we use the actual error message in the response.
+		},
+	}
+}
+
+func newNativeErrorResponse(requestID json.RawMessage, nerr Error) ErrorResponse {
 	res := ErrorResponse{
 		Version:   jsonRPCVersion,
 		RequestID: requestID,
 		Error: ErrorInfo{
-			Code:    err.Code(),
-			Message: err.Message(),
+			Code:    nerr.Code(),
+			Message: nerr.Message(),
 		},
 	}
 
-	if d := err.Data(); d != nil {
-		// The error contains a user-defined data value that needs to be
-		// serialized to JSON to be included in the response.
-		data, merr := json.Marshal(d)
-		if merr != nil {
-			return ErrorResponse{}, fmt.Errorf("could not marshal user-defined error data in %s: %w", err, merr)
+	if data := nerr.Data(); data != nil {
+		var err error
+		res.Error.Data, err = json.Marshal(data)
+		if err != nil {
+			// If an error occurs marshaling the user-defined error data we
+			// return an internal server error.
+			//
+			// We *could* still return the error code and message from nerr, but
+			// we can not be sure that the client implementation will behave as
+			// intended if presented with that error code but no user-defined
+			// data.
+			return NewErrorResponse(
+				requestID,
+				fmt.Errorf("could not marshal user-defined error data in %s: %w", nerr, err),
+			)
 		}
-
-		res.Error.Data = data
 	}
 
-	return res, nil
+	return res
 }
 
 func (ErrorResponse) isResponse() {}
@@ -92,4 +137,15 @@ type ErrorInfo struct {
 	Code    ErrorCode       `json:"code"`
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data,omitempty"`
+}
+
+func (e ErrorInfo) String() string {
+	return describeError(e.Code, e.Message)
+}
+
+// isInternalError returns true if err is considered "internal" to the server,
+// and hence should not be shown to the client.
+func isInternalError(err error) bool {
+	return !errors.Is(err, context.Canceled) &&
+		!errors.Is(err, context.DeadlineExceeded)
 }

@@ -85,21 +85,7 @@ func (e Error) Data() interface{} {
 }
 
 func (e Error) Error() string {
-	if e.message == "" {
-		// No user-defined error message was provided, all we really know is the
-		// error code and its description.
-		return fmt.Sprintf("[%d] %s", e.code, e.code)
-	}
-
-	if e.code.IsPredefined() {
-		// We have a user-defined error message and the code is predefined (so
-		// it has a useful description), so we display both.
-		return fmt.Sprintf("[%d] %s: %s", e.code, e.code, e.message)
-	}
-
-	// Otherwise, the description of the code is quite meaningless, so we only
-	// show the user-defined message.
-	return fmt.Sprintf("[%d] %s", e.code, e.message)
+	return describeError(e.code, e.message)
 }
 
 // Unwrap returns the cause of e, if known.
@@ -219,4 +205,24 @@ func (c ErrorCode) String() string {
 	}
 
 	return "unknown error"
+}
+
+// describeError returns a short string containing the most useful information
+// from an error code and message.
+func describeError(code ErrorCode, message string) string {
+	if message == "" || message == code.String() {
+		// The error message does not contain any more information than the
+		// description of the error code.
+		return fmt.Sprintf("[%d] %s", code, code)
+	}
+
+	if code.IsPredefined() {
+		// We have some different information in the error message, and the code
+		// is predefined so we display both.
+		return fmt.Sprintf("[%d] %s: %s", code, code, message)
+	}
+
+	// Otherwise, the code is not predefined which makes its description quite
+	// meaningless, so we only show the provided error message.
+	return fmt.Sprintf("[%d] %s", code, message)
 }
