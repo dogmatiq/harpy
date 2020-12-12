@@ -19,7 +19,7 @@ import (
 // always ignored.
 type Handler func(ctx context.Context, req Request) (res interface{}, err error)
 
-// HandlerInvoker is a PipelineStage that invokes a Handler.
+// HandlerInvoker is an Exchanger that invokes a Handler.
 type HandlerInvoker struct {
 	// Handle is the function that handles the request.
 	Handler Handler

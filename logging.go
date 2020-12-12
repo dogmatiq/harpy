@@ -7,11 +7,11 @@ import (
 	"github.com/dogmatiq/dodeca/logging"
 )
 
-// ExchangeLogger is a PipelineStage that logs complete request and response
-// information.
+// ExchangeLogger is an exchanger "middleware" that logs complete request and
+// response information that is passed to/from another Exchanger.
 type ExchangeLogger struct {
-	// Next is the next stage in the pipeline.
-	Next PipelineStage
+	// Next is an Exchanger to which requests are forwarded.
+	Next Exchanger
 
 	// Logger is the target for log messages about the requests and responses.
 	Logger logging.Logger

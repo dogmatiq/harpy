@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ PipelineStage = (*HandlerInvoker)(nil)
+var _ Exchanger = (*HandlerInvoker)(nil)
 
 var _ = Describe("type HandlerInvoker", func() {
 	var (

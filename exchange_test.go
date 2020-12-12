@@ -17,14 +17,14 @@ import (
 
 var _ = Describe("func Exchange()", func() {
 	var (
-		pipeline                     *PipelineStageStub
+		exchanger                    *ExchangerStub
 		requestSet                   RequestSet
 		requestA, requestB, requestC Request
-		respond                      Responder
+		responder                    BatchResponder
 	)
 
 	BeforeEach(func() {
-		pipeline = &PipelineStageStub{}
+		exchanger = &ExchangerStub{}
 
 		requestSet = RequestSet{}
 
@@ -49,7 +49,7 @@ var _ = Describe("func Exchange()", func() {
 			Parameters: json.RawMessage(`[7, 8, 9]`),
 		}
 
-		pipeline.CallFunc = func(
+		exchanger.CallFunc = func(
 			_ context.Context,
 			req Request,
 		) Response {
@@ -60,7 +60,7 @@ var _ = Describe("func Exchange()", func() {
 			}
 		}
 
-		respond = func(Request, Response) error {
+		responder = func(Request, Response) error {
 			Fail("unexpected call to respond()")
 			return nil
 		}
@@ -74,8 +74,8 @@ var _ = Describe("func Exchange()", func() {
 		res, single, err := Exchange(
 			context.Background(),
 			requestSet,
-			pipeline,
-			respond,
+			exchanger,
+			responder,
 		)
 
 		Expect(err).ShouldNot(HaveOccurred())
@@ -102,14 +102,14 @@ var _ = Describe("func Exchange()", func() {
 		})
 
 		When("the request is a call", func() {
-			It("passes the request to the pipeline and returns a single response", func() {
+			It("passes the request to the exchanger and returns a single response", func() {
 				expect := SuccessResponse{
 					Version:   "2.0",
 					RequestID: json.RawMessage(`123`),
 					Result:    json.RawMessage(`[10, 20, 30]`),
 				}
 
-				pipeline.CallFunc = func(
+				exchanger.CallFunc = func(
 					_ context.Context,
 					req Request,
 				) Response {
@@ -120,8 +120,8 @@ var _ = Describe("func Exchange()", func() {
 				res, single, err := Exchange(
 					context.Background(),
 					requestSet,
-					pipeline,
-					respond,
+					exchanger,
+					responder,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -135,9 +135,9 @@ var _ = Describe("func Exchange()", func() {
 				requestSet.Requests = []Request{requestC}
 			})
 
-			It("passes the request to the pipeline and does not produce any responses", func() {
+			It("passes the request to the exchanger and does not produce any responses", func() {
 				called := true
-				pipeline.NotifyFunc = func(
+				exchanger.NotifyFunc = func(
 					_ context.Context,
 					req Request,
 				) {
@@ -147,8 +147,8 @@ var _ = Describe("func Exchange()", func() {
 				_, single, err := Exchange(
 					context.Background(),
 					requestSet,
-					pipeline,
-					respond,
+					exchanger,
+					responder,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -172,9 +172,9 @@ var _ = Describe("func Exchange()", func() {
 			})
 
 			When("the request is a call", func() {
-				It("passes the request to the pipeline and invokes respond() with the response", func() {
+				It("passes the request to the exchanger and invokes the batch responder with the response", func() {
 					called := false
-					respond = func(req Request, res Response) error {
+					responder = func(req Request, res Response) error {
 						called = true
 
 						Expect(req).To(Equal(requestA))
@@ -192,8 +192,8 @@ var _ = Describe("func Exchange()", func() {
 					_, single, err := Exchange(
 						context.Background(),
 						requestSet,
-						pipeline,
-						respond,
+						exchanger,
+						responder,
 					)
 
 					Expect(err).ShouldNot(HaveOccurred())
@@ -201,9 +201,9 @@ var _ = Describe("func Exchange()", func() {
 					Expect(called).To(BeTrue())
 				})
 
-				When("respond() returns an error", func() {
+				When("the batch responder returns an error", func() {
 					BeforeEach(func() {
-						respond = func(Request, Response) error {
+						responder = func(Request, Response) error {
 							return errors.New("<error>")
 						}
 					})
@@ -212,8 +212,8 @@ var _ = Describe("func Exchange()", func() {
 						_, _, err := Exchange(
 							context.Background(),
 							requestSet,
-							pipeline,
-							respond,
+							exchanger,
+							responder,
 						)
 
 						Expect(err).To(MatchError("<error>"))
@@ -226,9 +226,9 @@ var _ = Describe("func Exchange()", func() {
 					requestSet.Requests = []Request{requestC}
 				})
 
-				It("passes the request to the pipeline and does not produce any responses", func() {
+				It("passes the request to the exchanger and does not produce any responses", func() {
 					called := true
-					pipeline.NotifyFunc = func(
+					exchanger.NotifyFunc = func(
 						_ context.Context,
 						req Request,
 					) {
@@ -238,8 +238,8 @@ var _ = Describe("func Exchange()", func() {
 					_, single, err := Exchange(
 						context.Background(),
 						requestSet,
-						pipeline,
-						respond,
+						exchanger,
+						responder,
 					)
 
 					Expect(err).ShouldNot(HaveOccurred())
@@ -251,19 +251,19 @@ var _ = Describe("func Exchange()", func() {
 
 		When("the batch contains a multiple requests", func() {
 			BeforeEach(func() {
-				respond = func(Request, Response) error {
+				responder = func(Request, Response) error {
 					return nil
 				}
 			})
 
-			It("invokes the pipeline for each request", func() {
+			It("invokes the exchanger for each request", func() {
 				var (
 					m             sync.Mutex
 					calls         []Request
 					notifications []Request
 				)
 
-				pipeline.CallFunc = func(
+				exchanger.CallFunc = func(
 					_ context.Context,
 					req Request,
 				) Response {
@@ -275,7 +275,7 @@ var _ = Describe("func Exchange()", func() {
 					return SuccessResponse{}
 				}
 
-				pipeline.NotifyFunc = func(
+				exchanger.NotifyFunc = func(
 					_ context.Context,
 					req Request,
 				) {
@@ -288,8 +288,8 @@ var _ = Describe("func Exchange()", func() {
 				_, single, err := Exchange(
 					context.Background(),
 					requestSet,
-					pipeline,
-					respond,
+					exchanger,
+					responder,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -299,7 +299,7 @@ var _ = Describe("func Exchange()", func() {
 				Expect(notifications).To(ConsistOf(requestC))
 			})
 
-			It("calls respond() for each call (but not notifications)", func() {
+			It("calls the batch responder for each call (but not notifications)", func() {
 				type exchange struct {
 					request  Request
 					response Response
@@ -310,7 +310,7 @@ var _ = Describe("func Exchange()", func() {
 					exchanges []exchange
 				)
 
-				respond = func(req Request, res Response) error {
+				responder = func(req Request, res Response) error {
 					m.Lock()
 					defer m.Unlock()
 
@@ -321,8 +321,8 @@ var _ = Describe("func Exchange()", func() {
 				_, single, err := Exchange(
 					context.Background(),
 					requestSet,
-					pipeline,
-					respond,
+					exchanger,
+					responder,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -347,9 +347,9 @@ var _ = Describe("func Exchange()", func() {
 				))
 			})
 
-			When("respond() returns an error", func() {
+			When("the batch responder returns an error", func() {
 				BeforeEach(func() {
-					respond = func(Request, Response) error {
+					responder = func(Request, Response) error {
 						return errors.New("<error>")
 					}
 				})
@@ -358,15 +358,15 @@ var _ = Describe("func Exchange()", func() {
 					_, _, err := Exchange(
 						context.Background(),
 						requestSet,
-						pipeline,
-						respond,
+						exchanger,
+						responder,
 					)
 
 					Expect(err).To(MatchError("<error>"))
 				})
 
-				It("cancels the context given to the pipeline", func() {
-					pipeline.CallFunc = func(
+				It("cancels the context given to the exchanger", func() {
+					exchanger.CallFunc = func(
 						ctx context.Context,
 						req Request,
 					) Response {
@@ -382,7 +382,7 @@ var _ = Describe("func Exchange()", func() {
 						return SuccessResponse{}
 					}
 
-					pipeline.NotifyFunc = func(
+					exchanger.NotifyFunc = func(
 						ctx context.Context,
 						_ Request,
 					) {
@@ -397,15 +397,15 @@ var _ = Describe("func Exchange()", func() {
 					Exchange(
 						context.Background(),
 						requestSet,
-						pipeline,
-						respond,
+						exchanger,
+						responder,
 					)
 				})
 
 				It("waits for the pending goroutines to finish", func() {
 					var done int32 // atomic
 
-					pipeline.CallFunc = func(
+					exchanger.CallFunc = func(
 						ctx context.Context,
 						req Request,
 					) Response {
@@ -414,7 +414,7 @@ var _ = Describe("func Exchange()", func() {
 						return SuccessResponse{}
 					}
 
-					pipeline.NotifyFunc = func(
+					exchanger.NotifyFunc = func(
 						ctx context.Context,
 						_ Request,
 					) {
@@ -425,16 +425,16 @@ var _ = Describe("func Exchange()", func() {
 					Exchange(
 						context.Background(),
 						requestSet,
-						pipeline,
-						respond,
+						exchanger,
+						responder,
 					)
 
 					Expect(done).To(BeEquivalentTo(3))
 				})
 
-				It("does not call respond() again", func() {
+				It("does not call the batch responder again", func() {
 					called := false
-					respond = func(Request, Response) error {
+					responder = func(Request, Response) error {
 						Expect(called).To(BeFalse())
 						called = true
 						return errors.New("<error>")
@@ -443,8 +443,8 @@ var _ = Describe("func Exchange()", func() {
 					Exchange(
 						context.Background(),
 						requestSet,
-						pipeline,
-						respond,
+						exchanger,
+						responder,
 					)
 				})
 			})

@@ -11,18 +11,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ PipelineStage = (*ExchangeLogger)(nil)
+var _ Exchanger = (*ExchangeLogger)(nil)
 
 var _ = Describe("type ExchangeLogger", func() {
 	var (
-		next    *PipelineStageStub
+		next    *ExchangerStub
 		request Request
 		logger  *logging.BufferedLogger
 		stage   *ExchangeLogger
 	)
 
 	BeforeEach(func() {
-		next = &PipelineStageStub{}
+		next = &ExchangerStub{}
 
 		request = Request{
 			Version:    "2.0",
