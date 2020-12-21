@@ -10,22 +10,20 @@ import (
 	"time"
 
 	. "github.com/jmalloc/voorhees"
-	. "github.com/jmalloc/voorhees/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("func Exchange()", func() {
 	var (
-		exchanger                    *ExchangerStub
 		requestSet                   RequestSet
 		requestA, requestB, requestC Request
-		responder                    BatchResponder
+		exchanger                    *exchangerStub
+		writer                       *responseWriterStub
+		closed                       bool
 	)
 
 	BeforeEach(func() {
-		exchanger = &ExchangerStub{}
-
 		requestSet = RequestSet{}
 
 		requestA = Request{
@@ -49,6 +47,8 @@ var _ = Describe("func Exchange()", func() {
 			Parameters: json.RawMessage(`[7, 8, 9]`),
 		}
 
+		exchanger = &exchangerStub{}
+
 		exchanger.CallFunc = func(
 			_ context.Context,
 			req Request,
@@ -60,40 +60,67 @@ var _ = Describe("func Exchange()", func() {
 			}
 		}
 
-		responder = func(Request, Response) error {
-			Fail("unexpected call to respond()")
-			return nil
+		closed = false
+		writer = &responseWriterStub{
+			WriteErrorFunc: func(context.Context, RequestSet, ErrorResponse) error {
+				panic("unexpected call to WriteErrorFunc()")
+			},
+			WriteUnbatchedFunc: func(context.Context, Request, Response) error {
+				panic("unexpected call to WriteUnbatchedFunc()")
+			},
+			WriteBatchedFunc: func(context.Context, Request, Response) error {
+				panic("unexpected call to WriteBatchedFunc()")
+			},
+			CloseFunc: func() error {
+				Expect(closed).To(BeFalse(), "response writer was closed multiple times")
+				closed = true
+				return nil
+			},
 		}
 	})
 
-	It("returns a single error response if the request set is invalid", func() {
+	AfterEach(func() {
+		// The response writer must always be closed.
+		Expect(closed).To(BeTrue())
+	})
+
+	It("writes an error response if the request set is invalid", func() {
 		requestSet = RequestSet{
 			IsBatch: true,
 		}
 
-		res, single, err := Exchange(
+		writer.WriteErrorFunc = func(
+			_ context.Context,
+			rs RequestSet,
+			res ErrorResponse,
+		) error {
+			Expect(rs).To(Equal(requestSet))
+			Expect(res).To(Equal(
+				ErrorResponse{
+					Version:   "2.0",
+					RequestID: nil,
+					Error: ErrorInfo{
+						Code:    InvalidRequestCode,
+						Message: "batches must contain at least one request",
+						Data:    nil,
+					},
+				},
+			))
+
+			return errors.New("<error>")
+		}
+
+		err := Exchange(
 			context.Background(),
 			requestSet,
 			exchanger,
-			responder,
+			writer,
 		)
 
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(single).To(BeTrue())
-		Expect(res).To(Equal(
-			ErrorResponse{
-				Version:   "2.0",
-				RequestID: nil,
-				Error: ErrorInfo{
-					Code:    InvalidRequestCode,
-					Message: "batches must contain at least one request",
-					Data:    nil,
-				},
-			},
-		))
+		Expect(err).To(MatchError("<error>"))
 	})
 
-	When("the request set is a single request", func() {
+	When("the request set is not a batch", func() {
 		BeforeEach(func() {
 			requestSet = RequestSet{
 				Requests: []Request{requestA},
@@ -102,7 +129,7 @@ var _ = Describe("func Exchange()", func() {
 		})
 
 		When("the request is a call", func() {
-			It("passes the request to the exchanger and returns a single response", func() {
+			It("passes the request to the exchanger and writes an unbatched response", func() {
 				expect := SuccessResponse{
 					Version:   "2.0",
 					RequestID: json.RawMessage(`123`),
@@ -117,16 +144,25 @@ var _ = Describe("func Exchange()", func() {
 					return expect
 				}
 
-				res, single, err := Exchange(
+				writer.WriteUnbatchedFunc = func(
+					_ context.Context,
+					req Request,
+					res Response,
+				) error {
+					Expect(req).To(Equal(requestA))
+					Expect(res).To(Equal(expect))
+
+					return errors.New("<error>")
+				}
+
+				err := Exchange(
 					context.Background(),
 					requestSet,
 					exchanger,
-					responder,
+					writer,
 				)
 
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(single).To(BeTrue())
-				Expect(res).To(Equal(expect))
+				Expect(err).To(MatchError("<error>"))
 			})
 		})
 
@@ -135,7 +171,7 @@ var _ = Describe("func Exchange()", func() {
 				requestSet.Requests = []Request{requestC}
 			})
 
-			It("passes the request to the exchanger and does not produce any responses", func() {
+			It("passes the request to the exchanger and does not write any responses", func() {
 				called := true
 				exchanger.NotifyFunc = func(
 					_ context.Context,
@@ -144,15 +180,14 @@ var _ = Describe("func Exchange()", func() {
 					Expect(req).To(Equal(requestC))
 				}
 
-				_, single, err := Exchange(
+				err := Exchange(
 					context.Background(),
 					requestSet,
 					exchanger,
-					responder,
+					writer,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(single).To(BeFalse())
 				Expect(called).To(BeTrue())
 			})
 		})
@@ -160,10 +195,7 @@ var _ = Describe("func Exchange()", func() {
 
 	When("the request set is a batch", func() {
 		BeforeEach(func() {
-			requestSet = RequestSet{
-				Requests: []Request{requestA, requestB, requestC},
-				IsBatch:  true,
-			}
+			requestSet.IsBatch = true
 		})
 
 		When("the batch contains a single request", func() {
@@ -172,11 +204,12 @@ var _ = Describe("func Exchange()", func() {
 			})
 
 			When("the request is a call", func() {
-				It("passes the request to the exchanger and invokes the batch responder with the response", func() {
-					called := false
-					responder = func(req Request, res Response) error {
-						called = true
-
+				It("passes the request to the exchanger and writes a batched response", func() {
+					writer.WriteBatchedFunc = func(
+						ctx context.Context,
+						req Request,
+						res Response,
+					) error {
 						Expect(req).To(Equal(requestA))
 						Expect(res).To(Equal(
 							SuccessResponse{
@@ -186,38 +219,17 @@ var _ = Describe("func Exchange()", func() {
 							},
 						))
 
-						return nil
+						return errors.New("<error>")
 					}
 
-					_, single, err := Exchange(
+					err := Exchange(
 						context.Background(),
 						requestSet,
 						exchanger,
-						responder,
+						writer,
 					)
 
-					Expect(err).ShouldNot(HaveOccurred())
-					Expect(single).To(BeFalse())
-					Expect(called).To(BeTrue())
-				})
-
-				When("the batch responder returns an error", func() {
-					BeforeEach(func() {
-						responder = func(Request, Response) error {
-							return errors.New("<error>")
-						}
-					})
-
-					It("returns the error", func() {
-						_, _, err := Exchange(
-							context.Background(),
-							requestSet,
-							exchanger,
-							responder,
-						)
-
-						Expect(err).To(MatchError("<error>"))
-					})
+					Expect(err).To(MatchError("<error>"))
 				})
 			})
 
@@ -226,7 +238,7 @@ var _ = Describe("func Exchange()", func() {
 					requestSet.Requests = []Request{requestC}
 				})
 
-				It("passes the request to the exchanger and does not produce any responses", func() {
+				It("passes the request to the exchanger and does not write any responses", func() {
 					called := true
 					exchanger.NotifyFunc = func(
 						_ context.Context,
@@ -235,15 +247,14 @@ var _ = Describe("func Exchange()", func() {
 						Expect(req).To(Equal(requestC))
 					}
 
-					_, single, err := Exchange(
+					err := Exchange(
 						context.Background(),
 						requestSet,
 						exchanger,
-						responder,
+						writer,
 					)
 
 					Expect(err).ShouldNot(HaveOccurred())
-					Expect(single).To(BeFalse())
 					Expect(called).To(BeTrue())
 				})
 			})
@@ -251,9 +262,7 @@ var _ = Describe("func Exchange()", func() {
 
 		When("the batch contains a multiple requests", func() {
 			BeforeEach(func() {
-				responder = func(Request, Response) error {
-					return nil
-				}
+				requestSet.Requests = []Request{requestA, requestB, requestC}
 			})
 
 			It("invokes the exchanger for each request", func() {
@@ -285,21 +294,22 @@ var _ = Describe("func Exchange()", func() {
 					notifications = append(notifications, req)
 				}
 
-				_, single, err := Exchange(
+				// Remove func that panics.
+				writer.WriteBatchedFunc = nil
+
+				err := Exchange(
 					context.Background(),
 					requestSet,
 					exchanger,
-					responder,
+					writer,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(single).To(BeFalse())
-
 				Expect(calls).To(ConsistOf(requestA, requestB))
 				Expect(notifications).To(ConsistOf(requestC))
 			})
 
-			It("calls the batch responder for each call (but not notifications)", func() {
+			It("write a batched response for each call (but not notifications)", func() {
 				type exchange struct {
 					request  Request
 					response Response
@@ -310,7 +320,11 @@ var _ = Describe("func Exchange()", func() {
 					exchanges []exchange
 				)
 
-				responder = func(req Request, res Response) error {
+				writer.WriteBatchedFunc = func(
+					_ context.Context,
+					req Request,
+					res Response,
+				) error {
 					m.Lock()
 					defer m.Unlock()
 
@@ -318,15 +332,14 @@ var _ = Describe("func Exchange()", func() {
 					return nil
 				}
 
-				_, single, err := Exchange(
+				err := Exchange(
 					context.Background(),
 					requestSet,
 					exchanger,
-					responder,
+					writer,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(single).To(BeFalse())
 				Expect(exchanges).To(ConsistOf(
 					exchange{
 						requestA,
@@ -347,19 +360,23 @@ var _ = Describe("func Exchange()", func() {
 				))
 			})
 
-			When("the batch responder returns an error", func() {
+			When("the response writer returns an error", func() {
 				BeforeEach(func() {
-					responder = func(Request, Response) error {
+					writer.WriteBatchedFunc = func(
+						context.Context,
+						Request,
+						Response,
+					) error {
 						return errors.New("<error>")
 					}
 				})
 
 				It("returns the error", func() {
-					_, _, err := Exchange(
+					err := Exchange(
 						context.Background(),
 						requestSet,
 						exchanger,
-						responder,
+						writer,
 					)
 
 					Expect(err).To(MatchError("<error>"))
@@ -398,7 +415,7 @@ var _ = Describe("func Exchange()", func() {
 						context.Background(),
 						requestSet,
 						exchanger,
-						responder,
+						writer,
 					)
 				})
 
@@ -426,15 +443,19 @@ var _ = Describe("func Exchange()", func() {
 						context.Background(),
 						requestSet,
 						exchanger,
-						responder,
+						writer,
 					)
 
 					Expect(done).To(BeEquivalentTo(3))
 				})
 
-				It("does not call the batch responder again", func() {
+				It("does not write any further responses", func() {
 					called := false
-					responder = func(Request, Response) error {
+					writer.WriteBatchedFunc = func(
+						context.Context,
+						Request,
+						Response,
+					) error {
 						Expect(called).To(BeFalse())
 						called = true
 						return errors.New("<error>")
@@ -444,10 +465,72 @@ var _ = Describe("func Exchange()", func() {
 						context.Background(),
 						requestSet,
 						exchanger,
-						responder,
+						writer,
 					)
 				})
 			})
 		})
 	})
 })
+
+// exchangerStub is a test implementation of the Exchanger interface.
+type exchangerStub struct {
+	CallFunc   func(context.Context, Request) Response
+	NotifyFunc func(context.Context, Request)
+}
+
+// Call handles a call request and returns the response.
+func (s *exchangerStub) Call(ctx context.Context, req Request) Response {
+	if s.CallFunc != nil {
+		return s.CallFunc(ctx, req)
+	}
+
+	return nil
+}
+
+// Notify handles a notification request.
+func (s *exchangerStub) Notify(ctx context.Context, req Request) {
+	if s.NotifyFunc != nil {
+		s.NotifyFunc(ctx, req)
+	}
+}
+
+// responseWriterStub is a test implementation of the ResponseWriter interface.
+type responseWriterStub struct {
+	WriteErrorFunc     func(context.Context, RequestSet, ErrorResponse) error
+	WriteUnbatchedFunc func(context.Context, Request, Response) error
+	WriteBatchedFunc   func(context.Context, Request, Response) error
+	CloseFunc          func() error
+}
+
+func (s *responseWriterStub) WriteError(ctx context.Context, rs RequestSet, res ErrorResponse) error {
+	if s.WriteErrorFunc != nil {
+		return s.WriteErrorFunc(ctx, rs, res)
+	}
+
+	return nil
+}
+
+func (s *responseWriterStub) WriteUnbatched(ctx context.Context, req Request, res Response) error {
+	if s.WriteUnbatchedFunc != nil {
+		return s.WriteUnbatchedFunc(ctx, req, res)
+	}
+
+	return nil
+}
+
+func (s *responseWriterStub) WriteBatched(ctx context.Context, req Request, res Response) error {
+	if s.WriteBatchedFunc != nil {
+		return s.WriteBatchedFunc(ctx, req, res)
+	}
+
+	return nil
+}
+
+func (s *responseWriterStub) Close() error {
+	if s.CloseFunc != nil {
+		return s.CloseFunc()
+	}
+
+	return nil
+}

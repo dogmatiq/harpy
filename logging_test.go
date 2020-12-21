@@ -6,7 +6,6 @@ import (
 
 	"github.com/dogmatiq/dodeca/logging"
 	. "github.com/jmalloc/voorhees"
-	. "github.com/jmalloc/voorhees/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -15,14 +14,14 @@ var _ Exchanger = (*ExchangeLogger)(nil)
 
 var _ = Describe("type ExchangeLogger", func() {
 	var (
-		next    *ExchangerStub
+		next    *exchangerStub
 		request Request
 		logger  *logging.BufferedLogger
 		stage   *ExchangeLogger
 	)
 
 	BeforeEach(func() {
-		next = &ExchangerStub{}
+		next = &exchangerStub{}
 
 		request = Request{
 			Version:    "2.0",

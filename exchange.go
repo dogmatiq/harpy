@@ -17,76 +17,96 @@ type Exchanger interface {
 	Notify(context.Context, Request)
 }
 
-// A BatchResponder is a function that sends a response to one request within a
-// batch.
-//
-// It is NOT used to send singular responses, such as a response to a
-// non-batched request or an error response that prevents an entire batch from
-// being handled.
-type BatchResponder func(req Request, res Response) error
+// A ResponseWriter writes a responses to requests.
+type ResponseWriter interface {
+	// WriteError writes an error response that is a result of some problem with
+	// the request set as a whole.
+	WriteError(context.Context, RequestSet, ErrorResponse) error
+
+	// WriteUnbatched writes a response to an individual request that was not
+	// part of a batch.
+	WriteUnbatched(context.Context, Request, Response) error
+
+	// WriteBatched writes a response to an individual request that was part of
+	// a batch.
+	WriteBatched(context.Context, Request, Response) error
+
+	// Close is called when there are no more responses to be sent.
+	Close() error
+}
 
 // Exchange performs a JSON-RPC exchange, whether for a single request or a
 // batch of requests.
 //
-// The appropriate method on e is called to handle each request. If there are
-// multiple requests each request is handled on its own goroutine.
+// e is the exchanger used to obtain a response to each request. If there are
+// multiple requests each request is passed to the exchanger on its own
+// goroutine.
 //
-// The response may either be a single response, or a batch of responses. If
-// single is true, res is a single response. Note that it's possible for a batch
-// request to produce a single response if the response is an error that
-// prevented the entire batch from being processed.
+// w is used to write responses to each requests. Calls to the methods on w are
+// serialized and do not require further synchronization.
 //
-// If single is false, the response is a batch and r has already been called for
-// each response to be sent. Calls to r are serialized and do not require
-// further synchronization. r is not called for notification requests.
-//
-// If r returns an error, the context passed to e is canceled and err is the
-// error returned by r. Execution blocks until all goroutines are completed, but
-// r is not called again.
+// If w produces an error, the context passed to e is canceled and Exchange()
+// returns the ResponseWriter's error. Execution blocks until all goroutines are
+// completed, but no more responses are written.
 //
 // If ctx is canceled or exceeds its deadline, e is responsible for aborting
 // execution and returning a suitable JSON-RPC response describing the
-// cancelation. err is NOT set to the context's error.
+// cancelation. Exchange() does NOT return the context's error.
 func Exchange(
 	ctx context.Context,
 	rs RequestSet,
 	e Exchanger,
-	r BatchResponder,
-) (res Response, single bool, err error) {
+	w ResponseWriter,
+) (err error) {
+	defer func() {
+		// Always close the responder, but only return its error if there was no
+		// more specific error already.
+		if e := w.Close(); e != nil {
+			if err == nil {
+				err = e
+			}
+		}
+	}()
+
 	if err, ok := rs.Validate(); !ok {
-		return ErrorResponse{
-			Version: jsonRPCVersion,
-			Error: ErrorInfo{
-				Code:    err.Code(),
-				Message: err.Message(),
+		return w.WriteError(
+			ctx,
+			rs,
+			ErrorResponse{
+				Version: jsonRPCVersion,
+				Error: ErrorInfo{
+					Code:    err.Code(),
+					Message: err.Message(),
+				},
 			},
-		}, true, nil
+		)
 	}
 
 	if rs.IsBatch {
-		return exchangeBatch(ctx, rs.Requests, e, r)
+		return exchangeBatch(ctx, rs.Requests, e, w)
 	}
 
-	res, ok := exchangeSingle(ctx, rs.Requests[0], e)
-	return res, ok, nil
+	return exchangeSingle(ctx, rs.Requests[0], e, w)
 }
 
 // exchangeSingle performs a JSON-RPC exchange for a single request. That is, a
 // request that is not part of a batch.
-//
-// If ok is true, the request is a call and res is the response to that call;
-// otherwise, res is nil.
 func exchangeSingle(
 	ctx context.Context,
 	req Request,
 	e Exchanger,
-) (res Response, ok bool) {
+	w ResponseWriter,
+) error {
 	if req.IsNotification() {
 		e.Notify(ctx, req)
-		return nil, false
+		return nil
 	}
 
-	return e.Call(ctx, req), true
+	return w.WriteUnbatched(
+		ctx,
+		req,
+		e.Call(ctx, req),
+	)
 }
 
 // exchangeBatch performs a JSON-RPC exchange for a batch request.
@@ -94,25 +114,26 @@ func exchangeBatch(
 	ctx context.Context,
 	requests []Request,
 	e Exchanger,
-	r BatchResponder,
-) (res Response, single bool, err error) {
+	w ResponseWriter,
+) error {
 	if len(requests) > 1 {
 		// If there is actually more than one request then we handle each in its
 		// own goroutine.
-		return nil, false, exchangeMany(ctx, requests, e, r)
+		return exchangeMany(ctx, requests, e, w)
 	}
 
 	// Otherwise we have a batch that happens to contain a single request. We
 	// avoid the overhead and latency of starting the extra goroutines and
-	// waiting their completion.
+	// awaiting their completion.
 	req := requests[0]
 
 	if req.IsNotification() {
 		e.Notify(ctx, req)
-		return nil, false, nil
+		return nil
 	}
 
-	return nil, false, r(
+	return w.WriteBatched(
+		ctx,
 		req,
 		e.Call(ctx, req),
 	)
@@ -123,7 +144,7 @@ func exchangeMany(
 	ctx context.Context,
 	requests []Request,
 	e Exchanger,
-	r BatchResponder,
+	w ResponseWriter,
 ) error {
 	type exchange struct {
 		request  Request
@@ -132,12 +153,12 @@ func exchangeMany(
 
 	// Create a channel of exchanges on which each response is received. The
 	// channel is buffered to ensure that writes do not block even if the
-	// BatchResponder panics.
+	// Responder panics.
 	pending := len(requests)
 	exchanges := make(chan exchange, pending)
 
 	// Create a cancelable context so we can abort pending goroutines if the
-	// BatchResponder returns an error.
+	// Responder returns an error.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -164,9 +185,9 @@ func exchangeMany(
 	// Wait for each pending goroutine to complete.
 	for x := range exchanges {
 		if err == nil && !x.request.IsNotification() {
-			// We only use the BatchResponder if the request is a call and no
-			// prior error has occurred.
-			err = r(x.request, x.response)
+			// We only use the Responder if the request is a call and no prior
+			// error has occurred.
+			err = w.WriteBatched(ctx, x.request, x.response)
 
 			if err != nil {
 				// We've seen an error for the first time. We cancel the context
