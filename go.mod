@@ -1,4 +1,4 @@
-module github.com/jmalloc/voorhees
+module github.com/jmalloc/harpy
 
 go 1.14
 

@@ -1,4 +1,4 @@
-package voorhees_test
+package harpy_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	. "github.com/jmalloc/voorhees"
+	. "github.com/jmalloc/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

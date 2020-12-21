@@ -1,4 +1,4 @@
-package voorhees_test
+package harpy_test
 
 import (
 	"reflect"

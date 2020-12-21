@@ -1,4 +1,4 @@
-package voorhees_test
+package harpy_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/dogmatiq/dodeca/logging"
-	. "github.com/jmalloc/voorhees"
+	. "github.com/jmalloc/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

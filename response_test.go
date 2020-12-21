@@ -1,11 +1,11 @@
-package voorhees_test
+package harpy_test
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 
-	. "github.com/jmalloc/voorhees"
+	. "github.com/jmalloc/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

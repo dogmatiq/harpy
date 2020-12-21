@@ -1,11 +1,11 @@
-package voorhees_test
+package harpy_test
 
 import (
 	"encoding/json"
 	"io"
 	"strings"
 
-	. "github.com/jmalloc/voorhees"
+	. "github.com/jmalloc/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -226,7 +226,7 @@ var _ = Describe("type RequestSet", func() {
 
 			e = err.(Error)
 			Expect(e.Code()).To(Equal(ParseErrorCode))
-			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type voorhees.Request"))
+			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
 		})
 
 		It("returns an error if a request within a batch is malformed", func() {
@@ -239,7 +239,7 @@ var _ = Describe("type RequestSet", func() {
 
 			e = err.(Error)
 			Expect(e.Code()).To(Equal(ParseErrorCode))
-			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type voorhees.Request"))
+			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
 		})
 	})
 
