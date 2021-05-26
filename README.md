@@ -1,3 +1,3 @@
 # Harpy
 
-Harpy is a transport-agnostic JSON-RPC v2 server toolkit for Go.
+Harpy is a toolkit for writing JSON-RPC v2.0 servers with Go.

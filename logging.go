@@ -7,8 +7,9 @@ import (
 	"github.com/dogmatiq/dodeca/logging"
 )
 
-// ExchangeLogger is an exchanger "middleware" that logs complete request and
-// response information that is passed to/from another Exchanger.
+// ExchangeLogger is an implementation of the Exchanger interface that logs
+// complete request and response information that is passed to/from another
+// Exchanger.
 type ExchangeLogger struct {
 	// Next is an Exchanger to which requests are forwarded.
 	Next Exchanger

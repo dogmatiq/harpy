@@ -16,7 +16,7 @@ type Response interface {
 type SuccessResponse struct {
 	// Version is the JSON-RPC version.
 	//
-	// As per the specification it MUST be exactly "2.0".
+	// As per the JSON-RPC specification it MUST be exactly "2.0".
 	Version string `json:"jsonrpc"`
 
 	// RequestID is the ID of the request that produced this response.
@@ -56,7 +56,7 @@ func (SuccessResponse) isResponse() {}
 type ErrorResponse struct {
 	// Version is the JSON-RPC version.
 	//
-	// As per the specification it MUST be exactly "2.0".
+	// As per the JSON-RPC specification it MUST be exactly "2.0".
 	Version string `json:"jsonrpc"`
 
 	// RequestID is the ID of the request that produced this response.

@@ -4,11 +4,12 @@ import (
 	"context"
 )
 
-// An Exchanger produces the responses within an exchange.
+// An Exchanger performs a JSON-RPC exchange, wherein a request is "exchanged"
+// for its response.
 //
 // An Exchanger differs from a Handler in that an Exchanger is fully responsible
 // for producing a valid response to a call, and handling all error conditions.
-// It has no facility to return an error.
+// It therefore has no facility to return an error.
 type Exchanger interface {
 	// Call handles call request and returns its response.
 	Call(context.Context, Request) Response
@@ -17,7 +18,9 @@ type Exchanger interface {
 	Notify(context.Context, Request)
 }
 
-// A ResponseWriter writes a responses to requests.
+// A ResponseWriter writes responses to requests.
+//
+// ResponseWriter implementations are typically transport-specific.
 type ResponseWriter interface {
 	// WriteError writes an error response that is a result of some problem with
 	// the request set as a whole.
@@ -31,7 +34,7 @@ type ResponseWriter interface {
 	// a batch.
 	WriteBatched(context.Context, Request, Response) error
 
-	// Close is called when there are no more responses to be sent.
+	// Close is called to signal that there are no more responses to be sent.
 	Close() error
 }
 

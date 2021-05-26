@@ -6,20 +6,23 @@ import (
 	"github.com/dogmatiq/dodeca/logging"
 )
 
-// Handler is a function that produces a result value in response to a JSON-RPC
-// request.
+// A Handler is a function that produces a result value (or error) in response
+// to a JSON-RPC request.
 //
-// res is the result value to include in the JSON-RPC response (it is not the
-// JSON-RPC response itself).
-//
-// If err is non-nil, a JSON-RPC error response is sent instead and res is
-// ignored.
+// res is the result value to include in the JSON-RPC response; it is not the
+// JSON-RPC response itself. If err is non-nil, a JSON-RPC error response is
+// sent instead and res is ignored.
 //
 // If req is a notification (that is, it does not have a request ID) res is
 // always ignored.
 type Handler func(ctx context.Context, req Request) (res interface{}, err error)
 
-// HandlerInvoker is an Exchanger that invokes a Handler.
+// HandlerInvoker is an implementation of the Exchanger interface that invokes a
+// Handler.
+//
+// It logs meta-data about each request and response, but does not include the
+// complete data structure for request/response information. Such logging can be
+// useful for debugging, and is provided by the ExchangeLogger type.
 type HandlerInvoker struct {
 	// Handle is the function that handles the request.
 	Handler Handler

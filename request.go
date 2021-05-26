@@ -10,32 +10,32 @@ import (
 )
 
 // jsonRPCVersion is the version that must appear in the "jsonrpc" field of
-// JSON-RPC v2 requests and responses.
+// JSON-RPC 2.0 requests and responses.
 const jsonRPCVersion = "2.0"
 
 // Request encapsulates a JSON-RPC request.
 type Request struct {
 	// Version is the JSON-RPC version.
 	//
-	// As per the specification it MUST be exactly "2.0".
+	// As per the JSON-RPC specification it MUST be exactly "2.0".
 	Version string `json:"jsonrpc"`
 
 	// ID uniquely identifies requests that expect a response, that is RPC calls
 	// as opposed to notifications.
 	//
-	// As per the specification, it MUST be a JSON string, number, or null
-	// value. It SHOULD NOT normally not be null. Numbers SHOULD NOT contain
-	// fractional parts.
+	// As per the JSON-RPC specification, it MUST be a JSON string, number, or
+	// null value. It SHOULD NOT normally not be null. Numbers SHOULD NOT
+	// contain fractional parts.
 	//
 	// If the ID field itself is nil, the request is a notification.
 	ID json.RawMessage `json:"id,omitempty"`
 
 	// Method is the name of the RPC method to be invoked.
 	//
-	// As per the specification, method names that begin with "rpc." are
-	// reserved for system extensions, and MUST NOT be used for anything else.
-	// Each system extension is defined in a separate specification. All system
-	// extensions are OPTIONAL.
+	// As per the JSON-RPC specification, method names that begin with "rpc."
+	// are reserved for system extensions, and MUST NOT be used for anything
+	// else. Each system extension is defined in a separate specification. All
+	// system extensions are OPTIONAL.
 	//
 	// Any requests for extension methods that are not handled internally by
 	// this package are treated just like any other request, allow extension
@@ -47,8 +47,8 @@ type Request struct {
 	// Parameters holds the parameter values to be used during the invocation of
 	// the method.
 	//
-	// As per the specification it MUST be a structured value, that is either a
-	// JSON array or object.
+	// As per the JSON-RPC specification it MUST be a structured value, that is
+	// either a JSON array or object.
 	//
 	// Validation of the parameters is the responsibility of the user-defined
 	// handlers.

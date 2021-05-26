@@ -1,6 +1,6 @@
 module github.com/jmalloc/harpy
 
-go 1.14
+go 1.16
 
 require (
 	github.com/dogmatiq/dodeca v0.2.1
