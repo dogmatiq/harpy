@@ -63,7 +63,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 			Expect(logger.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ CALL[123] <method> WITH PARAMETERS [1, 2, 3]`,
+					Message: `▼ '<method>' CALL REQUEST [123] WITH PARAMETERS [1, 2, 3]`,
 					IsDebug: false,
 				},
 			))
@@ -75,7 +75,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 			Expect(logger.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ CALL[123] <method> WITHOUT PARAMETERS`,
+					Message: `▼ '<method>' CALL REQUEST [123] WITHOUT PARAMETERS`,
 					IsDebug: false,
 				},
 			))
@@ -104,7 +104,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 				Expect(logger.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
-						Message: `▲ CALL[123] <method> SUCCESS WITH RESULT [4, 5, 6]`,
+						Message: `▲ '<method>' CALL RESPONSE [123] SUCCESS WITH RESULT [4, 5, 6]`,
 						IsDebug: false,
 					},
 				))
@@ -117,7 +117,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 				Expect(logger.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
-						Message: `▲ CALL[123] <method> SUCCESS WITHOUT RESULT`,
+						Message: `▲ '<method>' CALL RESPONSE [123] SUCCESS WITHOUT RESULT`,
 						IsDebug: false,
 					},
 				))
@@ -151,7 +151,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 				Expect(logger.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
-						Message: `▲ CALL[123] <method> ERROR [-32603] internal server error: <error> WITH DATA [7, 8, 9]`,
+						Message: `▲ '<method>' CALL RESPONSE [123] ERROR [-32603] internal server error: <error> WITH DATA [7, 8, 9]`,
 						IsDebug: false,
 					},
 				))
@@ -164,7 +164,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 				Expect(logger.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
-						Message: `▲ CALL[123] <method> ERROR [-32603] internal server error: <error> WITHOUT DATA`,
+						Message: `▲ '<method>' CALL RESPONSE [123] ERROR [-32603] internal server error: <error> WITHOUT DATA`,
 						IsDebug: false,
 					},
 				))
@@ -177,7 +177,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 				Expect(logger.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
-						Message: `▲ CALL[123] <method> ERROR [-32603] internal server error WITH DATA [7, 8, 9]`,
+						Message: `▲ '<method>' CALL RESPONSE [123] ERROR [-32603] internal server error WITH DATA [7, 8, 9]`,
 						IsDebug: false,
 					},
 				))
@@ -209,7 +209,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 			Expect(logger.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ NOTIFY <method> WITH PARAMETERS [1, 2, 3]`,
+					Message: `▼ '<method>' NOTIFY REQUEST WITH PARAMETERS [1, 2, 3]`,
 					IsDebug: false,
 				},
 			))
@@ -221,7 +221,7 @@ var _ = Describe("type ExchangeLogger", func() {
 
 			Expect(logger.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ NOTIFY <method> WITHOUT PARAMETERS`,
+					Message: `▼ '<method>' NOTIFY REQUEST WITHOUT PARAMETERS`,
 					IsDebug: false,
 				},
 			))

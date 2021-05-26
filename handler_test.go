@@ -76,7 +76,7 @@ var _ = Describe("type HandlerInvoker", func() {
 
 				Expect(logger.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
-						Message: `✓ CALL[123] <method>`,
+						Message: `✓ '<method>' CALL`,
 						IsDebug: false,
 					},
 				))
@@ -111,7 +111,7 @@ var _ = Describe("type HandlerInvoker", func() {
 
 				Expect(logger.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
-						Message: `✗ CALL[123] <method>  [789] <error>`,
+						Message: `✗ '<method>' CALL  [789] <error>`,
 						IsDebug: false,
 					},
 				))
@@ -139,7 +139,7 @@ var _ = Describe("type HandlerInvoker", func() {
 
 					Expect(logger.Messages()).To(ContainElement(
 						logging.BufferedLogMessage{
-							Message: `✗ CALL[123] <method>  [-32603] internal server error  [cause: <error>]`,
+							Message: `✗ '<method>' CALL  [-32603] internal server error  [cause: <error>]`,
 							IsDebug: false,
 						},
 					))
@@ -174,7 +174,7 @@ var _ = Describe("type HandlerInvoker", func() {
 
 			Expect(logger.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `✓ NOTIFY <method>`,
+					Message: `✓ '<method>' NOTIFY`,
 					IsDebug: false,
 				},
 			))
@@ -192,7 +192,7 @@ var _ = Describe("type HandlerInvoker", func() {
 
 			Expect(logger.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `✗ NOTIFY <method>  <error>`,
+					Message: `✗ '<method>' NOTIFY  <error>`,
 					IsDebug: false,
 				},
 			))

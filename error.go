@@ -47,7 +47,9 @@ func NewError(code ErrorCode, options ...ErrorOption) Error {
 //
 // This function is provided to allow user-defined handlers to produce errors
 // with reserved codes if necessary, but forces the developer to be explicit
-// about doing so. Under normal circumstances NewError() should be used instead.
+// about doing so.
+//
+// Consider using MethodNotFound(), InvalidParameters() or NewError() instead.
 func NewErrorWithReservedCode(code ErrorCode, options ...ErrorOption) Error {
 	if !code.IsReserved() {
 		panic(fmt.Sprintf("the error code %d is not reserved by the JSON-RPC specification", code))

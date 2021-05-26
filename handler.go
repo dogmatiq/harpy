@@ -46,16 +46,14 @@ func (i *HandlerInvoker) Call(ctx context.Context, req Request) Response {
 	case SuccessResponse:
 		logging.Log(
 			i.Logger,
-			`✓ CALL[%s] %s`,
-			req.ID,
+			`✓ '%s' CALL`,
 			req.Method,
 		)
 	case ErrorResponse:
 		if res.ServerError != nil {
 			logging.Log(
 				i.Logger,
-				`✗ CALL[%s] %s  %s  [cause: %s]`,
-				req.ID,
+				`✗ '%s' CALL  %s  [cause: %s]`,
 				req.Method,
 				res.Error,
 				res.ServerError,
@@ -63,8 +61,7 @@ func (i *HandlerInvoker) Call(ctx context.Context, req Request) Response {
 		} else {
 			logging.Log(
 				i.Logger,
-				`✗ CALL[%s] %s  %s`,
-				req.ID,
+				`✗ '%s' CALL  %s`,
 				req.Method,
 				res.Error,
 			)
@@ -80,7 +77,7 @@ func (i *HandlerInvoker) Notify(ctx context.Context, req Request) {
 	if err != nil {
 		logging.Log(
 			i.Logger,
-			`✗ NOTIFY %s  %s`,
+			`✗ '%s' NOTIFY  %s`,
 			req.Method,
 			err,
 		)
@@ -90,7 +87,7 @@ func (i *HandlerInvoker) Notify(ctx context.Context, req Request) {
 
 	logging.Log(
 		i.Logger,
-		`✓ NOTIFY %s`,
+		`✓ '%s' NOTIFY`,
 		req.Method,
 	)
 }
