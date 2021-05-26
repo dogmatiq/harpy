@@ -2,6 +2,7 @@ package harpy
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -94,7 +95,10 @@ func (r Request) Validate() (Error, bool) {
 // unmarshaling successfully. If validation fails it wraps the validation error
 // in the appropriate native JSON-RPC error.
 func (r Request) UnmarshalParameters(v interface{}) error {
-	if err := json.Unmarshal(r.Parameters, v); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(r.Parameters))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(v); err != nil {
 		return InvalidParameters(
 			WithCause(err),
 		)

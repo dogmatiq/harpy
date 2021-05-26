@@ -126,6 +126,21 @@ var _ = Describe("type Request", func() {
 			Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
 		})
 
+		It("returns an error if the parameters contain unknown fields", func() {
+			req := Request{
+				Version:    "2.0",
+				Parameters: []byte(`{"Value":123}`),
+			}
+
+			var params struct{}
+			err := req.UnmarshalParameters(&params)
+
+			var jsonErr Error
+			ok := errors.As(err, &jsonErr)
+			Expect(ok).To(BeTrue())
+			Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
+		})
+
 		When("the target type implements the Validatable interface", func() {
 			It("returns nil if validation succeeds", func() {
 				req := Request{
