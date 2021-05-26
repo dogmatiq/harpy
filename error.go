@@ -125,9 +125,9 @@ func WithCause(c error) ErrorOption {
 //
 // This message should be used to provide additional information that can help
 // diagnose the error.
-func WithMessage(m string) ErrorOption {
+func WithMessage(format string, values ...interface{}) ErrorOption {
 	return func(e *Error) {
-		e.message = m
+		e.message = fmt.Sprintf(format, values...)
 	}
 }
 
