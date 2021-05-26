@@ -25,9 +25,11 @@ func newError(code ErrorCode, options []ErrorOption) Error {
 	return e
 }
 
-// NewError returns a new JSON-RPC error.
+// NewError returns a new JSON-RPC error with an application-defined error code.
 //
-// It panics if code is within the range of codes reserved by the specification.
+// The error codes from and including -32768 to -32000 are reserved for
+// pre-defined errors by the JSON-RPC specification. Use of a code within this
+// range causes a panic.
 func NewError(code ErrorCode, options ...ErrorOption) Error {
 	if code.IsReserved() {
 		panic(fmt.Sprintf("the error code %d is reserved by the JSON-RPC specification (%s)", code, code))
@@ -36,15 +38,16 @@ func NewError(code ErrorCode, options ...ErrorOption) Error {
 	return newError(code, options)
 }
 
-// NewErrorWithReservedCode returns a new JSON-RPC error that uses a code within
-// the reserved of codes reserved by the specification.
+// NewErrorWithReservedCode returns a new JSON-RPC error that uses a reserved
+// error code.
 //
-// It panics if the code is not within the range of codes reserved by the
-// specification.
+// The error codes from and including -32768 to -32000 are reserved for
+// pre-defined errors by the JSON-RPC specification. Use of a code outside this
+// range causes a panic.
 //
 // This function is provided to allow user-defined handlers to produce errors
-// with reserved codes if necessary, but forces the developer to make a concious
-// choice to do so.
+// with reserved codes if necessary, but forces the developer to be explicit
+// about doing so. Under normal circumstances NewError() should be used instead.
 func NewErrorWithReservedCode(code ErrorCode, options ...ErrorOption) Error {
 	if !code.IsReserved() {
 		panic(fmt.Sprintf("the error code %d is not reserved by the JSON-RPC specification", code))
@@ -84,6 +87,7 @@ func (e Error) Data() interface{} {
 	return e.data
 }
 
+// Error returns the error message.
 func (e Error) Error() string {
 	return describeError(e.code, e.message)
 }
@@ -139,9 +143,9 @@ func WithData(data interface{}) ErrorOption {
 
 // ErrorCode is a JSON-RPC error code.
 //
-// As per the specification, the error codes from and including -32768 to -32000
-// are reserved for pre-defined errors. These known set of predefined errors are
-// defined as constants below.
+// As per the JSON-RPC specification, the error codes from and including -32768
+// to -32000 are reserved for pre-defined errors. These known set of predefined
+// errors are defined as constants below.
 type ErrorCode int
 
 const (
@@ -172,7 +176,8 @@ func (c ErrorCode) IsReserved() bool {
 	return c >= -32768 && c <= -32000
 }
 
-// IsPredefined returns true if c is an error code defined by the specification.
+// IsPredefined returns true if c is an error code defined by the JSON-RPC
+// specification.
 func (c ErrorCode) IsPredefined() bool {
 	switch c {
 	case ParseErrorCode,
@@ -186,6 +191,7 @@ func (c ErrorCode) IsPredefined() bool {
 	}
 }
 
+// String returns a brief description of the error.
 func (c ErrorCode) String() string {
 	switch c {
 	case ParseErrorCode:
