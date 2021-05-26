@@ -2,6 +2,7 @@ package harpy_test
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 
@@ -94,7 +95,85 @@ var _ = Describe("type Request", func() {
 			Expect(err.Unwrap()).To(MatchError("unexpected end of JSON input"))
 		})
 	})
+
+	Describe("func UnmarshalParameters()", func() {
+		It("populates the given value with the unmarshaled parameters", func() {
+			req := Request{
+				Version:    "2.0",
+				Parameters: []byte(`{"Value":123}`),
+			}
+
+			var params struct {
+				Value int
+			}
+			err := req.UnmarshalParameters(&params)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(params.Value).To(Equal(123))
+		})
+
+		It("returns an error if the parameters can not be unmarshaled", func() {
+			req := Request{
+				Version:    "2.0",
+				Parameters: []byte(`]`),
+			}
+
+			var params interface{}
+			err := req.UnmarshalParameters(&params)
+
+			var jsonErr Error
+			ok := errors.As(err, &jsonErr)
+			Expect(ok).To(BeTrue())
+			Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
+		})
+
+		When("the target type implements the Validatable interface", func() {
+			It("returns nil if validation succeeds", func() {
+				req := Request{
+					Version:    "2.0",
+					Parameters: []byte(`{"Value":123}`),
+				}
+
+				var params validatableStub
+				err := req.UnmarshalParameters(&params)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+
+			It("returns an error if validation fails", func() {
+				req := Request{
+					Version:    "2.0",
+					Parameters: []byte(`{"Value":123}`),
+				}
+
+				params := validatableStub{
+					ValidateFunc: func() error {
+						return errors.New("<error>")
+					},
+				}
+				err := req.UnmarshalParameters(&params)
+
+				var jsonErr Error
+				ok := errors.As(err, &jsonErr)
+				Expect(ok).To(BeTrue())
+				Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
+				Expect(jsonErr.Unwrap()).To(MatchError("<error>"))
+			})
+		})
+	})
 })
+
+// validatableStub is a test implementation of the Validatable interface.
+type validatableStub struct {
+	ValidateFunc func() error
+	Value        int
+}
+
+func (p validatableStub) Validate() error {
+	if p.ValidateFunc != nil {
+		return p.ValidateFunc()
+	}
+
+	return nil
+}
 
 var _ = Describe("type RequestSet", func() {
 	Describe("func ParseRequestSet()", func() {

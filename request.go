@@ -79,6 +79,33 @@ func (r Request) Validate() (Error, bool) {
 	return Error{}, true
 }
 
+// UnmarshalParameters is a convenience method for unmarshaling request
+// parameters into a Go value.
+//
+// It returns the appropriate native JSON-RPC error if r.Parameters can not be
+// unmarshaled into v.
+//
+// If v implements the Validatable interface, it calls v.Validate() after
+// unmarshaling successfully. If validation fails it wraps the validation error
+// in the appropriate native JSON-RPC error.
+func (r Request) UnmarshalParameters(v interface{}) error {
+	if err := json.Unmarshal(r.Parameters, v); err != nil {
+		return InvalidParameters(
+			WithCause(err),
+		)
+	}
+
+	if v, ok := v.(Validatable); ok {
+		if err := v.Validate(); err != nil {
+			return InvalidParameters(
+				WithCause(err),
+			)
+		}
+	}
+
+	return nil
+}
+
 // validateRequestID returns false if the given request ID is not one of the
 // accepted types.
 func validateRequestID(id json.RawMessage) (Error, bool) {
@@ -236,4 +263,14 @@ func isJSONError(err error) bool {
 		//   errors.New(`json: unknown field "<field name>"`)
 		return strings.HasPrefix(err.Error(), "json:")
 	}
+}
+
+// Validatable is an interface for parameter values that provide their own
+// validation.
+type Validatable interface {
+	// Validate returns a non-nil error if the value is invalid.
+	//
+	// The returned error, if non-nil, is always wrapped in a JSON-RPC "invalid
+	// parameters" error, and therefore should not itself be a JSON-RPC error.
+	Validate() error
 }
