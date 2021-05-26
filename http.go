@@ -3,6 +3,8 @@ package harpy
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"mime"
 	"net/http"
 )
@@ -21,6 +23,34 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		enc: json.NewEncoder(w),
 	}
 
+	if !validateHTTPHeaders(rw, r) {
+		return
+	}
+
+	rs, ok := parseHTTPRequestSet(rw, r)
+	if !ok {
+		return
+	}
+
+	// Perform the exchange. Any error here is an IO problem with the HTTP
+	// response, so we can't inform the HTTP client about it in any way.
+	//
+	// We leave it up to hypotethetical HTTP middleware to log the error, if
+	// necessary.
+	Exchange( // nolint:errcheck
+		r.Context(),
+		rs,
+		h.Exchanger,
+		rw,
+	)
+}
+
+// validateHTTPHeaders checks that the necessary HTTP request headers are set
+// correctly.
+//
+// If any header values are invalid it writes a JSON-RPC error to rw and returns
+// false.
+func validateHTTPHeaders(rw *httpResponseWriter, r *http.Request) bool {
 	if r.Method != http.MethodPost {
 		rw.writeError(
 			http.StatusMethodNotAllowed,
@@ -32,7 +62,8 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				),
 			),
 		)
-		return
+
+		return false
 	}
 
 	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
@@ -47,40 +78,49 @@ func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				),
 			),
 		)
-		return
+
+		return false
 	}
 
-	ctx := r.Context()
+	return true
+}
 
+// parseHTTPRequestSet parses a JSON-RPC request set from a HTTP request.
+//
+// If parsing fails it writes a JSON-RPC error to rw and sets ok to false.
+func parseHTTPRequestSet(rw *httpResponseWriter, r *http.Request) (_ RequestSet, ok bool) {
 	rs, err := ParseRequestSet(r.Body)
 
-	switch err.(type) {
-	case nil:
-		err = Exchange(
-			ctx,
-			rs,
-			h.Exchanger,
-			rw,
-		)
-	case Error:
-		err = rw.WriteError(
-			ctx,
-			RequestSet{},
+	if err == nil {
+		return rs, true
+	}
+
+	// There was a problem with the JSON-RPC request set.
+	var jsonErr Error
+	if errors.As(err, &jsonErr) {
+		rw.writeError(
+			0, // use whatever HTTP status code is most appropriate
 			NewErrorResponse(nil, err),
 		)
-	default:
-		rw.writeError(
-			http.StatusInternalServerError,
-			NewErrorResponse(
-				nil,
-				NewErrorWithReservedCode(
-					InternalErrorCode,
-					WithMessage("unable to read request body"),
+
+		return RequestSet{}, false
+	}
+
+	// Otherwise, there was a problem reading the HTTP request.
+	rw.writeError(
+		http.StatusInternalServerError,
+		NewErrorResponse(
+			nil,
+			NewErrorWithReservedCode(
+				InternalErrorCode,
+				WithCause(
+					fmt.Errorf("unable to read HTTP request body: %w", err),
 				),
 			),
-		)
-		return
-	}
+		),
+	)
+
+	return RequestSet{}, false
 }
 
 // httpMediaType is the MIME media-type for JSON-RPC requests and responses when

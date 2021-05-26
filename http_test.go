@@ -227,7 +227,7 @@ var _ = Describe("type HTTPHandler", func() {
 			"id": null,
 			"error": {
 				"code": -32603,
-				"message": "unable to read request body"
+				"message": "unable to read HTTP request body: <induced read error>"
 			}
 		}`))
 	})
