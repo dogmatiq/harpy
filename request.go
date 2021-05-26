@@ -38,10 +38,15 @@ type Request struct {
 	// system extensions are OPTIONAL.
 	//
 	// Any requests for extension methods that are not handled internally by
-	// this package are treated just like any other request, allow extension
-	// methods to be implemented by user-defined handlers.
+	// this package are treated just like any other request, thus allowing
+	// extension methods to be implemented by user-defined handlers.
 	//
 	// This package does not currently handle any extension methods internally.
+	//
+	// In accordance with the JSON-RPC specification there are no requirements
+	// placed on the format of the method name. This allows server
+	// implementations that provide methods with an empty name, non-ASCII names,
+	// or any other value that can be represented as a JSON string.
 	Method string `json:"method"`
 
 	// Parameters holds the parameter values to be used during the invocation of
