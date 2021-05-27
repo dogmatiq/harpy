@@ -10,6 +10,7 @@ import (
 	"time"
 
 	. "github.com/jmalloc/harpy"
+	. "github.com/jmalloc/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -18,8 +19,8 @@ var _ = Describe("func Exchange()", func() {
 	var (
 		requestSet                   RequestSet
 		requestA, requestB, requestC Request
-		exchanger                    *exchangerStub
-		writer                       *responseWriterStub
+		exchanger                    *ExchangerStub
+		writer                       *ResponseWriterStub
 		closed                       bool
 	)
 
@@ -47,7 +48,7 @@ var _ = Describe("func Exchange()", func() {
 			Parameters: json.RawMessage(`[7, 8, 9]`),
 		}
 
-		exchanger = &exchangerStub{}
+		exchanger = &ExchangerStub{}
 
 		exchanger.CallFunc = func(
 			_ context.Context,
@@ -61,7 +62,7 @@ var _ = Describe("func Exchange()", func() {
 		}
 
 		closed = false
-		writer = &responseWriterStub{
+		writer = &ResponseWriterStub{
 			WriteErrorFunc: func(context.Context, RequestSet, ErrorResponse) error {
 				panic("unexpected call to WriteErrorFunc()")
 			},
@@ -472,65 +473,3 @@ var _ = Describe("func Exchange()", func() {
 		})
 	})
 })
-
-// exchangerStub is a test implementation of the Exchanger interface.
-type exchangerStub struct {
-	CallFunc   func(context.Context, Request) Response
-	NotifyFunc func(context.Context, Request)
-}
-
-// Call handles a call request and returns the response.
-func (s *exchangerStub) Call(ctx context.Context, req Request) Response {
-	if s.CallFunc != nil {
-		return s.CallFunc(ctx, req)
-	}
-
-	return nil
-}
-
-// Notify handles a notification request.
-func (s *exchangerStub) Notify(ctx context.Context, req Request) {
-	if s.NotifyFunc != nil {
-		s.NotifyFunc(ctx, req)
-	}
-}
-
-// responseWriterStub is a test implementation of the ResponseWriter interface.
-type responseWriterStub struct {
-	WriteErrorFunc     func(context.Context, RequestSet, ErrorResponse) error
-	WriteUnbatchedFunc func(context.Context, Request, Response) error
-	WriteBatchedFunc   func(context.Context, Request, Response) error
-	CloseFunc          func() error
-}
-
-func (s *responseWriterStub) WriteError(ctx context.Context, rs RequestSet, res ErrorResponse) error {
-	if s.WriteErrorFunc != nil {
-		return s.WriteErrorFunc(ctx, rs, res)
-	}
-
-	return nil
-}
-
-func (s *responseWriterStub) WriteUnbatched(ctx context.Context, req Request, res Response) error {
-	if s.WriteUnbatchedFunc != nil {
-		return s.WriteUnbatchedFunc(ctx, req, res)
-	}
-
-	return nil
-}
-
-func (s *responseWriterStub) WriteBatched(ctx context.Context, req Request, res Response) error {
-	if s.WriteBatchedFunc != nil {
-		return s.WriteBatchedFunc(ctx, req, res)
-	}
-
-	return nil
-}
-
-func (s *responseWriterStub) Close() error {
-	if s.CloseFunc != nil {
-		return s.CloseFunc()
-	}
-
-	return nil
-}

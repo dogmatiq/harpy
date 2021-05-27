@@ -1,4 +1,4 @@
-package harpy_test
+package httptransport_test
 
 import (
 	"context"
@@ -8,35 +8,37 @@ import (
 	"strings"
 
 	"github.com/dogmatiq/iago/iotest"
-	. "github.com/jmalloc/harpy"
+	"github.com/jmalloc/harpy"
+	. "github.com/jmalloc/harpy/httptransport"
+	. "github.com/jmalloc/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("type HTTPHandler", func() {
+var _ = Describe("type Handler", func() {
 	var (
-		exchanger *exchangerStub
-		handler   *HTTPHandler
+		exchanger *ExchangerStub
+		handler   *Handler
 		server    *httptest.Server
 		request   *strings.Reader
 	)
 
 	BeforeEach(func() {
-		exchanger = &exchangerStub{}
+		exchanger = &ExchangerStub{}
 
 		exchanger.CallFunc = func(
 			_ context.Context,
-			req Request,
-		) Response {
-			return SuccessResponse{
+			req harpy.Request,
+		) harpy.Response {
+			return harpy.SuccessResponse{
 				Version:   "2.0",
 				RequestID: req.ID,
 				Result:    req.Parameters,
 			}
 		}
 
-		handler = &HTTPHandler{
+		handler = &Handler{
 			Exchanger: exchanger,
 		}
 
@@ -237,18 +239,18 @@ var _ = Describe("type HTTPHandler", func() {
 		func(err error, statusCode int) {
 			exchanger.CallFunc = func(
 				_ context.Context,
-				req Request,
-			) Response {
-				return NewErrorResponse(req.ID, err)
+				req harpy.Request,
+			) harpy.Response {
+				return harpy.NewErrorResponse(req.ID, err)
 			}
 
 			res, err := http.Post(server.URL, "application/json", request)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(res.StatusCode).To(Equal(statusCode))
 		},
-		Entry("method not found", MethodNotFound(), http.StatusNotImplemented),
-		Entry("invalid parameters", InvalidParameters(), http.StatusBadRequest),
-		Entry("internal error", NewErrorWithReservedCode(InternalErrorCode), http.StatusInternalServerError),
-		Entry("a native JSON-RPC error with an unreserved code", NewError(123), http.StatusOK),
+		Entry("method not found", harpy.MethodNotFound(), http.StatusNotImplemented),
+		Entry("invalid parameters", harpy.InvalidParameters(), http.StatusBadRequest),
+		Entry("internal error", harpy.NewErrorWithReservedCode(harpy.InternalErrorCode), http.StatusInternalServerError),
+		Entry("a native JSON-RPC error with an unreserved code", harpy.NewError(123), http.StatusOK),
 	)
 })
