@@ -1,7 +1,6 @@
 package httptransport
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -19,9 +18,8 @@ type Handler struct {
 
 // ServeHTTP handles the HTTP request.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rw := &responseWriter{
-		w:   w,
-		enc: json.NewEncoder(w),
+	rw := &ResponseWriter{
+		Target: w,
 	}
 
 	if !validateHeaders(rw, r) {
@@ -55,7 +53,7 @@ const mediaType = "application/json"
 //
 // If any header values are invalid it writes a JSON-RPC error to rw and returns
 // false.
-func validateHeaders(rw *responseWriter, r *http.Request) bool {
+func validateHeaders(rw *ResponseWriter, r *http.Request) bool {
 	if r.Method != http.MethodPost {
 		rw.writeErrorWithHTTPStatus(
 			http.StatusMethodNotAllowed,
@@ -93,7 +91,7 @@ func validateHeaders(rw *responseWriter, r *http.Request) bool {
 // parseRequestSet parses a JSON-RPC request set from a HTTP request.
 //
 // If parsing fails it writes a JSON-RPC error to rw and sets ok to false.
-func parseRequestSet(rw *responseWriter, r *http.Request) (_ harpy.RequestSet, ok bool) {
+func parseRequestSet(rw *ResponseWriter, r *http.Request) (_ harpy.RequestSet, ok bool) {
 	rs, err := harpy.ParseRequestSet(r.Body)
 	if err == nil {
 		return rs, true

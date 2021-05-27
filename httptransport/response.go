@@ -8,11 +8,12 @@ import (
 	"github.com/jmalloc/harpy"
 )
 
-// responseWriter is an implementation of harpy.ResponseWriter that writes
+// ResponseWriter is an implementation of harpy.ResponseWriter that writes
 // responses to an http.ResponseWriter.
-type responseWriter struct {
-	w         http.ResponseWriter
-	enc       *json.Encoder
+type ResponseWriter struct {
+	// Target is the writer used to send JSON-RPC responses.
+	Target http.ResponseWriter
+
 	arrayOpen bool
 }
 
@@ -31,7 +32,7 @@ var (
 // specification the HTTP status code is set to the most appropriate equivalent.
 // Application-defined JSON-RPC errors always result in a HTTP 200 OK, as they
 // considered part of normal operation of the transport.
-func (w *responseWriter) WriteError(
+func (w *ResponseWriter) WriteError(
 	_ context.Context,
 	_ harpy.RequestSet,
 	res harpy.ErrorResponse,
@@ -49,7 +50,7 @@ func (w *responseWriter) WriteError(
 // most appropriate equivalent. Application-defined JSON-RPC errors always
 // result in a HTTP 200 OK, as they considered part of normal operation of the
 // transport.
-func (w *responseWriter) WriteUnbatched(
+func (w *ResponseWriter) WriteUnbatched(
 	_ context.Context,
 	_ harpy.Request,
 	res harpy.Response,
@@ -58,10 +59,10 @@ func (w *responseWriter) WriteUnbatched(
 		return w.writeError(e)
 	}
 
-	w.w.Header().Set("Content-Type", mediaType)
-	w.w.WriteHeader(http.StatusOK)
+	w.Target.Header().Set("Content-Type", mediaType)
+	w.Target.WriteHeader(http.StatusOK)
 
-	return w.enc.Encode(res)
+	return w.write(res)
 }
 
 // WriteBatched writes a response to an individual request that was part of a
@@ -73,7 +74,7 @@ func (w *responseWriter) WriteUnbatched(
 //
 // The HTTP status is always HTTP 200 OK, as even if res is an ErrorResponse,
 // other responses in the batch may indicate a success.
-func (w *responseWriter) WriteBatched(
+func (w *ResponseWriter) WriteBatched(
 	_ context.Context,
 	_ harpy.Request,
 	res harpy.Response,
@@ -81,46 +82,52 @@ func (w *responseWriter) WriteBatched(
 	separator := comma
 
 	if !w.arrayOpen {
-		w.w.Header().Set("Content-Type", mediaType)
+		w.Target.Header().Set("Content-Type", mediaType)
 		w.arrayOpen = true
 		separator = openArray
 	}
 
-	if _, err := w.w.Write(separator); err != nil {
+	if _, err := w.Target.Write(separator); err != nil {
 		return err
 	}
 
-	return w.enc.Encode(res)
+	return w.write(res)
 }
 
 // Close is called to signal that there are no more responses to be sent.
 //
 // If batched responses have been written, it writes the closing bracket of the
 // array that encapsulates the responses.
-func (w *responseWriter) Close() error {
+func (w *ResponseWriter) Close() error {
 	if w.arrayOpen {
-		_, err := w.w.Write(closeArray)
+		_, err := w.Target.Write(closeArray)
 		return err
 	}
 
 	return nil
 }
 
+// writeBody writes a JSON-RPC as the HTTP response body.
+func (w *ResponseWriter) write(res harpy.Response) error {
+	enc := json.NewEncoder(w.Target)
+	return enc.Encode(res)
+}
+
 // writeError sends a JSON-RPC error response using the most appropriate HTTP
 // status code.
-func (w *responseWriter) writeError(res harpy.ErrorResponse) error {
+func (w *ResponseWriter) writeError(res harpy.ErrorResponse) error {
 	status := httpStatusFromErrorCode(res.Error.Code)
-	w.w.Header().Set("Content-Type", mediaType)
-	w.w.WriteHeader(status)
-	return w.enc.Encode(res)
+	w.Target.Header().Set("Content-Type", mediaType)
+	w.Target.WriteHeader(status)
+	return w.write(res)
 }
 
 // writeErrorWithHTTPStatus writes a JSON-RPC error response using the provided
 // HTTP status code.
-func (w *responseWriter) writeErrorWithHTTPStatus(status int, res harpy.ErrorResponse) {
-	w.w.Header().Set("Content-Type", mediaType)
-	w.w.WriteHeader(status)
-	w.enc.Encode(res) // nolint:error // no way to report this error to the client, we already failed to write
+func (w *ResponseWriter) writeErrorWithHTTPStatus(status int, res harpy.ErrorResponse) {
+	w.Target.Header().Set("Content-Type", mediaType)
+	w.Target.WriteHeader(status)
+	w.write(res) // nolint:error // no way to report this error to the client, we already failed to write
 }
 
 // httpStatusFromErrorCode returns the appropriate HTTP status code to send in
