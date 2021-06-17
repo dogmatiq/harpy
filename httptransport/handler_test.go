@@ -229,7 +229,7 @@ var _ = Describe("type Handler", func() {
 			"id": null,
 			"error": {
 				"code": -32603,
-				"message": "unable to read HTTP request body: <induced read error>"
+				"message": "unable to read request set: <induced read error>"
 			}
 		}`))
 	})

@@ -28,6 +28,20 @@ func (s *ExchangerStub) Notify(ctx context.Context, req harpy.Request) {
 	}
 }
 
+// RequestSetReaderStub is a test implementation of the RequestSetReader
+// interface.
+type RequestSetReaderStub struct {
+	ReadFunc func(context.Context) (harpy.RequestSet, error)
+}
+
+func (s *RequestSetReaderStub) Read(ctx context.Context) (harpy.RequestSet, error) {
+	if s.ReadFunc != nil {
+		return s.ReadFunc(ctx)
+	}
+
+	return harpy.RequestSet{}, nil
+}
+
 // ResponseWriterStub is a test implementation of the ResponseWriter interface.
 type ResponseWriterStub struct {
 	WriteErrorFunc     func(context.Context, harpy.RequestSet, harpy.ErrorResponse) error
