@@ -556,7 +556,7 @@ var _ = Describe("func Exchange()", func() {
 					Code:    InternalErrorCode,
 					Message: "unable to read request set: <error>",
 				},
-				"error: -32603 internal server error, responded with: unable to read request set: <error>, is batch: unclear",
+				"error: -32603 internal server error, responded with: unable to read request set: <error>",
 			),
 			Entry(
 				"native JSON-RPC error when reading the request set",
@@ -567,7 +567,7 @@ var _ = Describe("func Exchange()", func() {
 					Code:    InvalidRequestCode,
 					Message: InvalidRequestCode.String(),
 				},
-				"error: -32600 invalid request, is batch: unclear",
+				"error: -32600 invalid request",
 			),
 			Entry(
 				"invalid request set",
@@ -578,7 +578,7 @@ var _ = Describe("func Exchange()", func() {
 					Code:    InvalidRequestCode,
 					Message: "non-batch request sets must contain exactly one request",
 				},
-				"error: -32600 invalid request, responded with: non-batch request sets must contain exactly one request, is batch: unclear",
+				"error: -32600 invalid request, responded with: non-batch request sets must contain exactly one request",
 			),
 		)
 	})
