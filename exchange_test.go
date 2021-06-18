@@ -510,7 +510,12 @@ var _ = Describe("func Exchange()", func() {
 	When("there is a problem with the request set", func() {
 		DescribeTable(
 			"it writes an error response",
-			func(fn func() (RequestSet, error), expectErr ErrorInfo, expectLog string) {
+			func(
+				fn func() (RequestSet, error),
+				expectErrInfo ErrorInfo,
+				expectLog string,
+				expectErr string,
+			) {
 				reader.ReadFunc = func(context.Context) (RequestSet, error) {
 					return fn()
 				}
@@ -525,7 +530,7 @@ var _ = Describe("func Exchange()", func() {
 						ErrorResponse{
 							Version:   "2.0",
 							RequestID: nil,
-							Error:     expectErr,
+							Error:     expectErrInfo,
 						},
 					))
 
@@ -540,12 +545,17 @@ var _ = Describe("func Exchange()", func() {
 					logger,
 				)
 
-				Expect(err).ShouldNot(HaveOccurred())
 				Expect(buffer.Messages()).To(ContainElement(
 					logging.BufferedLogMessage{
 						Message: expectLog,
 					},
 				))
+
+				if expectErr == "" {
+					Expect(err).ShouldNot(HaveOccurred())
+				} else {
+					Expect(err).To(MatchError(expectErr))
+				}
 			},
 			Entry(
 				"IO error when reading the request set",
@@ -557,6 +567,7 @@ var _ = Describe("func Exchange()", func() {
 					Message: "unable to read request set: <error>",
 				},
 				"error: -32603 internal server error, responded with: unable to read request set: <error>",
+				"<error>",
 			),
 			Entry(
 				"native JSON-RPC error when reading the request set",
@@ -568,6 +579,7 @@ var _ = Describe("func Exchange()", func() {
 					Message: InvalidRequestCode.String(),
 				},
 				"error: -32600 invalid request",
+				"", // Exchange() should not return the error
 			),
 			Entry(
 				"invalid request set",
@@ -579,6 +591,7 @@ var _ = Describe("func Exchange()", func() {
 					Message: "non-batch request sets must contain exactly one request",
 				},
 				"error: -32600 invalid request, responded with: non-batch request sets must contain exactly one request",
+				"", // Exchange() should not return the error
 			),
 		)
 	})

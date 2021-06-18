@@ -59,7 +59,7 @@ type ResponseWriter interface {
 // multiple requests each request is passed to the exchanger on its own
 // goroutine.
 //
-// w is used to write responses to each requests. Calls to the methods on w are
+// w is used to write responses to each request. Calls to the methods on w are
 // serialized and do not require further synchronization.
 //
 // If w produces an error, the context passed to e is canceled and Exchange()
@@ -69,6 +69,9 @@ type ResponseWriter interface {
 // If ctx is canceled or exceeds its deadline, e is responsible for aborting
 // execution and returning a suitable JSON-RPC response describing the
 // cancelation. Exchange() does NOT return the context's error.
+//
+// Any error returned by Exchange() indicates an IO error produced by either r
+// or w.
 func Exchange(
 	ctx context.Context,
 	e Exchanger,
@@ -92,18 +95,29 @@ func Exchange(
 
 	rs, err := r.Read(ctx)
 	if err != nil {
-		// As per the RequestSetReader interface, any non-nil error that is NOT
-		// an Error is considered an I/O error.
-		if _, ok := err.(Error); !ok {
-			err = NewErrorWithReservedCode(
-				InternalErrorCode,
-				WithMessage("unable to read request set: %s", err.Error()),
-			)
+		if _, ok := err.(Error); ok {
+			res := NewErrorResponse(nil, err)
+			l.LogError(rs, res)
+			return w.WriteError(ctx, rs, res)
 		}
 
-		res := NewErrorResponse(nil, err)
+		// As per the RequestSetReader interface, any non-nil error that is NOT
+		// an Error is considered an I/O error.
+		reportedErr := NewErrorWithReservedCode(
+			InternalErrorCode,
+			WithMessage("unable to read request set: %s", err.Error()),
+		)
+
+		res := NewErrorResponse(nil, reportedErr)
 		l.LogError(rs, res)
-		return w.WriteError(ctx, rs, res)
+
+		// We've already seen an IO error when reading, attempt to write the
+		// response, but ignore any errors when doing so, preferring instead to
+		// return the original read error. It's likely that writes will fail if
+		// reads have already failed.
+		w.WriteError(ctx, rs, res) // nolint:errcheck
+
+		return err
 	}
 
 	if err, ok := rs.Validate(); !ok {
