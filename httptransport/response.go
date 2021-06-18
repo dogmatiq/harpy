@@ -127,7 +127,7 @@ func (w *ResponseWriter) writeError(res harpy.ErrorResponse) error {
 func (w *ResponseWriter) writeErrorWithHTTPStatus(status int, res harpy.ErrorResponse) {
 	w.Target.Header().Set("Content-Type", mediaType)
 	w.Target.WriteHeader(status)
-	w.write(res) // nolint:error // no way to report this error to the client, we already failed to write
+	w.write(res) // nolint:errcheck // no way to report this error to the client, we already failed to write
 }
 
 // httpStatusFromErrorCode returns the appropriate HTTP status code to send in
