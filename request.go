@@ -260,8 +260,6 @@ func isJSONError(err error) bool {
 		return false
 	case *json.SyntaxError:
 		return true
-	case *json.UnmarshalFieldError:
-		return true
 	case *json.UnmarshalTypeError:
 		return true
 	default:
