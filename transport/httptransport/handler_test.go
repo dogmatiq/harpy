@@ -9,8 +9,8 @@ import (
 
 	"github.com/dogmatiq/iago/iotest"
 	"github.com/jmalloc/harpy"
-	. "github.com/jmalloc/harpy/httptransport"
 	. "github.com/jmalloc/harpy/internal/fixtures"
+	. "github.com/jmalloc/harpy/transport/httptransport"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
