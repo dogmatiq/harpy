@@ -101,7 +101,7 @@ func parseRequestSet(rw *ResponseWriter, r *http.Request) (_ harpy.RequestSet, o
 	var jsonErr harpy.Error
 	if errors.As(err, &jsonErr) {
 		res := harpy.NewErrorResponse(nil, err)
-		rw.writeError(res)
+		rw.writeError(res) // nolint:errcheck // no way to report this error to the client, we already failed to write
 		return harpy.RequestSet{}, false
 	}
 
