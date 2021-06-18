@@ -9,9 +9,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dogmatiq/dodeca/logging"
 	. "github.com/jmalloc/harpy"
 	. "github.com/jmalloc/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -20,7 +22,10 @@ var _ = Describe("func Exchange()", func() {
 		requestSet                   RequestSet
 		requestA, requestB, requestC Request
 		exchanger                    *ExchangerStub
+		reader                       *RequestSetReaderStub
 		writer                       *ResponseWriterStub
+		buffer                       *logging.BufferedLogger
+		logger                       DefaultExchangeLogger
 		closed                       bool
 	)
 
@@ -31,37 +36,53 @@ var _ = Describe("func Exchange()", func() {
 			Version:    "2.0",
 			ID:         json.RawMessage(`123`),
 			Method:     "<method-a>",
-			Parameters: json.RawMessage(`[1, 2, 3]`),
+			Parameters: json.RawMessage(`1`),
 		}
 
 		requestB = Request{
 			Version:    "2.0",
 			ID:         json.RawMessage(`456`),
 			Method:     "<method-b>",
-			Parameters: json.RawMessage(`[4, 5, 6]`),
+			Parameters: json.RawMessage(`22`),
 		}
 
 		requestC = Request{
 			Version:    "2.0",
 			ID:         nil, // notification
 			Method:     "<method-c>",
-			Parameters: json.RawMessage(`[7, 8, 9]`),
+			Parameters: json.RawMessage(`333`),
 		}
 
 		exchanger = &ExchangerStub{}
 
+		// Default Call implementation returns its parameter multiplied by 1000.
 		exchanger.CallFunc = func(
 			_ context.Context,
 			req Request,
 		) Response {
+			var param int
+			if err := json.Unmarshal(req.Parameters, &param); err != nil {
+				panic(err)
+			}
+
+			result, err := json.Marshal(param * 1000)
+			if err != nil {
+				panic(err)
+			}
+
 			return SuccessResponse{
 				Version:   "2.0",
 				RequestID: req.ID,
-				Result:    json.RawMessage(`"result"`),
+				Result:    result,
 			}
 		}
 
-		closed = false
+		reader = &RequestSetReaderStub{
+			ReadFunc: func(context.Context) (RequestSet, error) {
+				return requestSet, nil
+			},
+		}
+
 		writer = &ResponseWriterStub{
 			WriteErrorFunc: func(context.Context, RequestSet, ErrorResponse) error {
 				panic("unexpected call to WriteErrorFunc()")
@@ -78,47 +99,19 @@ var _ = Describe("func Exchange()", func() {
 				return nil
 			},
 		}
+
+		buffer = &logging.BufferedLogger{}
+
+		logger = DefaultExchangeLogger{
+			Target: buffer,
+		}
+
+		closed = false
 	})
 
 	AfterEach(func() {
 		// The response writer must always be closed.
 		Expect(closed).To(BeTrue())
-	})
-
-	It("writes an error response if the request set is invalid", func() {
-		requestSet = RequestSet{
-			IsBatch: true,
-		}
-
-		writer.WriteErrorFunc = func(
-			_ context.Context,
-			rs RequestSet,
-			res ErrorResponse,
-		) error {
-			Expect(rs).To(Equal(requestSet))
-			Expect(res).To(Equal(
-				ErrorResponse{
-					Version:   "2.0",
-					RequestID: nil,
-					Error: ErrorInfo{
-						Code:    InvalidRequestCode,
-						Message: "batches must contain at least one request",
-						Data:    nil,
-					},
-				},
-			))
-
-			return errors.New("<error>")
-		}
-
-		err := Exchange(
-			context.Background(),
-			requestSet,
-			exchanger,
-			writer,
-		)
-
-		Expect(err).To(MatchError("<error>"))
 	})
 
 	When("the request set is not a batch", func() {
@@ -131,18 +124,13 @@ var _ = Describe("func Exchange()", func() {
 
 		When("the request is a call", func() {
 			It("passes the request to the exchanger and writes an unbatched response", func() {
-				expect := SuccessResponse{
-					Version:   "2.0",
-					RequestID: json.RawMessage(`123`),
-					Result:    json.RawMessage(`[10, 20, 30]`),
-				}
-
+				next := exchanger.CallFunc
 				exchanger.CallFunc = func(
-					_ context.Context,
+					ctx context.Context,
 					req Request,
 				) Response {
 					Expect(req).To(Equal(requestA))
-					return expect
+					return next(ctx, req)
 				}
 
 				writer.WriteUnbatchedFunc = func(
@@ -151,19 +139,29 @@ var _ = Describe("func Exchange()", func() {
 					res Response,
 				) error {
 					Expect(req).To(Equal(requestA))
-					Expect(res).To(Equal(expect))
+					Expect(res).To(Equal(SuccessResponse{
+						Version:   "2.0",
+						RequestID: json.RawMessage(`123`),
+						Result:    json.RawMessage(`1000`),
+					}))
 
 					return errors.New("<error>")
 				}
 
 				err := Exchange(
 					context.Background(),
-					requestSet,
 					exchanger,
+					reader,
 					writer,
+					logger,
 				)
 
 				Expect(err).To(MatchError("<error>"))
+				Expect(buffer.Messages()).To(ContainElement(
+					logging.BufferedLogMessage{
+						Message: `call "<method-a>" [params: 1 B, result: 4 B]`,
+					},
+				))
 			})
 		})
 
@@ -183,13 +181,19 @@ var _ = Describe("func Exchange()", func() {
 
 				err := Exchange(
 					context.Background(),
-					requestSet,
 					exchanger,
+					reader,
 					writer,
+					logger,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(called).To(BeTrue())
+				Expect(buffer.Messages()).To(ContainElement(
+					logging.BufferedLogMessage{
+						Message: `notify "<method-c>" [params: 3 B]`,
+					},
+				))
 			})
 		})
 	})
@@ -216,7 +220,7 @@ var _ = Describe("func Exchange()", func() {
 							SuccessResponse{
 								Version:   "2.0",
 								RequestID: req.ID,
-								Result:    json.RawMessage(`"result"`),
+								Result:    json.RawMessage(`1000`),
 							},
 						))
 
@@ -225,12 +229,18 @@ var _ = Describe("func Exchange()", func() {
 
 					err := Exchange(
 						context.Background(),
-						requestSet,
 						exchanger,
+						reader,
 						writer,
+						logger,
 					)
 
 					Expect(err).To(MatchError("<error>"))
+					Expect(buffer.Messages()).To(ContainElement(
+						logging.BufferedLogMessage{
+							Message: `call "<method-a>" [params: 1 B, result: 4 B]`,
+						},
+					))
 				})
 			})
 
@@ -250,18 +260,24 @@ var _ = Describe("func Exchange()", func() {
 
 					err := Exchange(
 						context.Background(),
-						requestSet,
 						exchanger,
+						reader,
 						writer,
+						logger,
 					)
 
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(called).To(BeTrue())
+					Expect(buffer.Messages()).To(ContainElement(
+						logging.BufferedLogMessage{
+							Message: `notify "<method-c>" [params: 3 B]`,
+						},
+					))
 				})
 			})
 		})
 
-		When("the batch contains a multiple requests", func() {
+		When("the batch contains multiple requests", func() {
 			BeforeEach(func() {
 				requestSet.Requests = []Request{requestA, requestB, requestC}
 			})
@@ -300,9 +316,10 @@ var _ = Describe("func Exchange()", func() {
 
 				err := Exchange(
 					context.Background(),
-					requestSet,
 					exchanger,
+					reader,
 					writer,
+					logger,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -310,7 +327,7 @@ var _ = Describe("func Exchange()", func() {
 				Expect(notifications).To(ConsistOf(requestC))
 			})
 
-			It("write a batched response for each call (but not notifications)", func() {
+			It("writes a batched response for each call (but not notifications)", func() {
 				type exchange struct {
 					request  Request
 					response Response
@@ -335,9 +352,10 @@ var _ = Describe("func Exchange()", func() {
 
 				err := Exchange(
 					context.Background(),
-					requestSet,
 					exchanger,
+					reader,
 					writer,
+					logger,
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
@@ -347,7 +365,7 @@ var _ = Describe("func Exchange()", func() {
 						SuccessResponse{
 							Version:   "2.0",
 							RequestID: json.RawMessage(`123`),
-							Result:    json.RawMessage(`"result"`),
+							Result:    json.RawMessage(`1000`),
 						},
 					},
 					exchange{
@@ -355,8 +373,20 @@ var _ = Describe("func Exchange()", func() {
 						SuccessResponse{
 							Version:   "2.0",
 							RequestID: json.RawMessage(`456`),
-							Result:    json.RawMessage(`"result"`),
+							Result:    json.RawMessage(`22000`),
 						},
+					},
+				))
+
+				Expect(buffer.Messages()).To(ConsistOf(
+					logging.BufferedLogMessage{
+						Message: `call "<method-a>" [params: 1 B, result: 4 B]`,
+					},
+					logging.BufferedLogMessage{
+						Message: `call "<method-b>" [params: 2 B, result: 5 B]`,
+					},
+					logging.BufferedLogMessage{
+						Message: `notify "<method-c>" [params: 3 B]`,
 					},
 				))
 			})
@@ -375,9 +405,10 @@ var _ = Describe("func Exchange()", func() {
 				It("returns the error", func() {
 					err := Exchange(
 						context.Background(),
-						requestSet,
 						exchanger,
+						reader,
 						writer,
+						logger,
 					)
 
 					Expect(err).To(MatchError("<error>"))
@@ -414,9 +445,10 @@ var _ = Describe("func Exchange()", func() {
 
 					Exchange(
 						context.Background(),
-						requestSet,
 						exchanger,
+						reader,
 						writer,
+						logger,
 					)
 				})
 
@@ -442,9 +474,10 @@ var _ = Describe("func Exchange()", func() {
 
 					Exchange(
 						context.Background(),
-						requestSet,
 						exchanger,
+						reader,
 						writer,
+						logger,
 					)
 
 					Expect(done).To(BeEquivalentTo(3))
@@ -464,12 +497,89 @@ var _ = Describe("func Exchange()", func() {
 
 					Exchange(
 						context.Background(),
-						requestSet,
 						exchanger,
+						reader,
 						writer,
+						logger,
 					)
 				})
 			})
 		})
+	})
+
+	When("there is a problem with the request set", func() {
+		DescribeTable(
+			"it writes an error response",
+			func(fn func() (RequestSet, error), expectErr ErrorInfo, expectLog string) {
+				reader.ReadFunc = func(context.Context) (RequestSet, error) {
+					return fn()
+				}
+
+				writer.WriteErrorFunc = func(
+					_ context.Context,
+					rs RequestSet,
+					res ErrorResponse,
+				) error {
+					Expect(rs).To(Equal(requestSet))
+					Expect(res).To(Equal(
+						ErrorResponse{
+							Version:   "2.0",
+							RequestID: nil,
+							Error:     expectErr,
+						},
+					))
+
+					return nil
+				}
+
+				err := Exchange(
+					context.Background(),
+					exchanger,
+					reader,
+					writer,
+					logger,
+				)
+
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(buffer.Messages()).To(ContainElement(
+					logging.BufferedLogMessage{
+						Message: expectLog,
+					},
+				))
+			},
+			Entry(
+				"IO error when reading the request set",
+				func() (RequestSet, error) {
+					return RequestSet{}, errors.New("<error>")
+				},
+				ErrorInfo{
+					Code:    InternalErrorCode,
+					Message: "unable to read request set: <error>",
+				},
+				"error: -32603 internal server error, responded with: unable to read request set: <error>, is batch: unclear",
+			),
+			Entry(
+				"native JSON-RPC error when reading the request set",
+				func() (RequestSet, error) {
+					return RequestSet{}, NewErrorWithReservedCode(InvalidRequestCode)
+				},
+				ErrorInfo{
+					Code:    InvalidRequestCode,
+					Message: InvalidRequestCode.String(),
+				},
+				"error: -32600 invalid request, is batch: unclear",
+			),
+			Entry(
+				"invalid request set",
+				func() (RequestSet, error) {
+					return RequestSet{}, nil
+				},
+				ErrorInfo{
+					Code:    InvalidRequestCode,
+					Message: "non-batch request sets must contain exactly one request",
+				},
+				"error: -32600 invalid request, responded with: non-batch request sets must contain exactly one request, is batch: unclear",
+			),
+		)
 	})
 })

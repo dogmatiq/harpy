@@ -1,228 +1,193 @@
 package harpy_test
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/dogmatiq/dodeca/logging"
+	"github.com/jmalloc/harpy"
 	. "github.com/jmalloc/harpy"
-	. "github.com/jmalloc/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ Exchanger = (*ExchangeLogger)(nil)
-
-var _ = Describe("type ExchangeLogger", func() {
+var _ = Context("type DefaultExchangeLogger", func() {
 	var (
-		next    *ExchangerStub
-		request Request
-		logger  *logging.BufferedLogger
-		stage   *ExchangeLogger
+		request                       harpy.Request
+		requestSet                    harpy.RequestSet
+		success                       harpy.SuccessResponse
+		nativeError                   harpy.ErrorResponse
+		nativeErrorNonStandardMessage harpy.ErrorResponse
+		nonNativeError                harpy.ErrorResponse
+		buffer                        *logging.BufferedLogger
+		logger                        DefaultExchangeLogger
 	)
 
 	BeforeEach(func() {
-		next = &ExchangerStub{}
-
 		request = Request{
 			Version:    "2.0",
 			ID:         json.RawMessage(`123`),
-			Method:     "<method>",
+			Method:     "method",
 			Parameters: json.RawMessage(`[1, 2, 3]`),
 		}
 
-		logger = &logging.BufferedLogger{
+		requestSet = harpy.RequestSet{
+			Requests: []harpy.Request{request},
+		}
+
+		success = harpy.NewSuccessResponse(request.ID, 123).(harpy.SuccessResponse)
+		nativeError = harpy.NewErrorResponse(request.ID, MethodNotFound())
+		nativeErrorNonStandardMessage = harpy.NewErrorResponse(request.ID, MethodNotFound(WithMessage("<message>")))
+		nonNativeError = harpy.NewErrorResponse(request.ID, errors.New("<error>"))
+
+		buffer = &logging.BufferedLogger{
 			CaptureDebug: true,
 		}
 
-		stage = &ExchangeLogger{
-			Next:   next,
-			Logger: logger,
+		logger = DefaultExchangeLogger{
+			Target: buffer,
 		}
 	})
 
-	Describe("func Call()", func() {
-		It("passes the request to the next stage", func() {
-			expect := SuccessResponse{
-				Result: json.RawMessage(`"expected"`),
-			}
+	Describe("func LogNotification()", func() {
+		It("logs the request information", func() {
+			request.ID = nil
+			logger.LogNotification(request)
 
-			next.CallFunc = func(
-				_ context.Context,
-				req Request,
-			) Response {
-				Expect(req).To(Equal(req))
-				return expect
-			}
-
-			res := stage.Call(context.Background(), request)
-			Expect(res).To(Equal(expect))
-		})
-
-		It("logs requests that have parameters", func() {
-			stage.Call(context.Background(), request)
-
-			Expect(logger.Messages()).To(ContainElement(
+			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ '<method>' CALL REQUEST [123] WITH PARAMETERS [1, 2, 3]`,
+					Message: `notify method [params: 9 B]`,
 					IsDebug: false,
 				},
 			))
 		})
 
-		It("logs requests that do not have parameters", func() {
-			request.Parameters = nil
-			stage.Call(context.Background(), request)
+		It("quotes empty method names", func() {
+			request.ID = nil
+			request.Method = ""
+			logger.LogNotification(request)
 
-			Expect(logger.Messages()).To(ContainElement(
+			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ '<method>' CALL REQUEST [123] WITHOUT PARAMETERS`,
+					Message: `notify "" [params: 9 B]`,
 					IsDebug: false,
 				},
 			))
 		})
 
-		When("the next stage succeeds", func() {
-			var response SuccessResponse
+		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
+			request.ID = nil
+			request.Method = "<the method>\x00"
+			logger.LogNotification(request)
 
-			BeforeEach(func() {
-				response = SuccessResponse{
-					Version:   "2.0",
-					RequestID: json.RawMessage(`123`),
-					Result:    json.RawMessage(`[4, 5, 6]`),
-				}
-
-				next.CallFunc = func(
-					_ context.Context,
-					req Request,
-				) Response {
-					return response
-				}
-			})
-
-			It("logs responses that have a result", func() {
-				stage.Call(context.Background(), request)
-
-				Expect(logger.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `▲ '<method>' CALL RESPONSE [123] SUCCESS WITH RESULT [4, 5, 6]`,
-						IsDebug: false,
-					},
-				))
-			})
-
-			It("logs responses that do not have a result", func() {
-				response.Result = nil
-
-				stage.Call(context.Background(), request)
-
-				Expect(logger.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `▲ '<method>' CALL RESPONSE [123] SUCCESS WITHOUT RESULT`,
-						IsDebug: false,
-					},
-				))
-			})
-		})
-
-		When("when the next stage fails", func() {
-			var response ErrorResponse
-
-			BeforeEach(func() {
-				response = ErrorResponse{
-					Version:   "2.0",
-					RequestID: json.RawMessage(`123`),
-					Error: ErrorInfo{
-						Code:    InternalErrorCode,
-						Message: "<error>",
-						Data:    json.RawMessage(`[7, 8, 9]`),
-					},
-				}
-
-				next.CallFunc = func(
-					_ context.Context,
-					req Request,
-				) Response {
-					return response
-				}
-			})
-
-			It("logs responses that have user-defined data", func() {
-				stage.Call(context.Background(), request)
-
-				Expect(logger.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `▲ '<method>' CALL RESPONSE [123] ERROR [-32603] internal server error: <error> WITH DATA [7, 8, 9]`,
-						IsDebug: false,
-					},
-				))
-			})
-
-			It("logs responses that do not have user-defined data", func() {
-				response.Error.Data = nil
-
-				stage.Call(context.Background(), request)
-
-				Expect(logger.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `▲ '<method>' CALL RESPONSE [123] ERROR [-32603] internal server error: <error> WITHOUT DATA`,
-						IsDebug: false,
-					},
-				))
-			})
-
-			It("does not duplicate the error message if it is the same as the error code description", func() {
-				response.Error.Message = response.Error.Code.String()
-
-				stage.Call(context.Background(), request)
-
-				Expect(logger.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `▲ '<method>' CALL RESPONSE [123] ERROR [-32603] internal server error WITH DATA [7, 8, 9]`,
-						IsDebug: false,
-					},
-				))
-			})
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `notify "<the method>\x00" [params: 9 B]`,
+					IsDebug: false,
+				},
+			))
 		})
 	})
 
-	Describe("func Notify()", func() {
-		BeforeEach(func() {
-			request.ID = nil
-		})
+	Describe("func LogCall()", func() {
+		It("logs the request and response information", func() {
+			logger.LogCall(request, success)
 
-		It("passes the request to the next stage", func() {
-			called := false
-			next.NotifyFunc = func(
-				_ context.Context,
-				req Request,
-			) {
-				called = true
-				Expect(req).To(Equal(req))
-			}
-
-			stage.Notify(context.Background(), request)
-			Expect(called).To(BeTrue())
-		})
-
-		It("logs requests that have parameters", func() {
-			stage.Notify(context.Background(), request)
-
-			Expect(logger.Messages()).To(ContainElement(
+			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ '<method>' NOTIFY REQUEST WITH PARAMETERS [1, 2, 3]`,
+					Message: `call method [params: 9 B, result: 3 B]`,
 					IsDebug: false,
 				},
 			))
 		})
 
-		It("logs requests that do not have parameters", func() {
-			request.Parameters = nil
-			stage.Notify(context.Background(), request)
+		It("quotes empty method names", func() {
+			request.Method = ""
+			logger.LogCall(request, success)
 
-			Expect(logger.Messages()).To(ContainElement(
+			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `▼ '<method>' NOTIFY REQUEST WITHOUT PARAMETERS`,
+					Message: `call "" [params: 9 B, result: 3 B]`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
+			request.Method = "<the method>\x00"
+			logger.LogCall(request, success)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `call "<the method>\x00" [params: 9 B, result: 3 B]`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("logs details of a native error response", func() {
+			logger.LogCall(request, nativeError)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `call method [params: 9 B, error: -32601 method not found]`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("logs details of a native error response with a non-standard message", func() {
+			logger.LogCall(request, nativeErrorNonStandardMessage)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `call method [params: 9 B, error: -32601 method not found, responded with: <message>]`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("logs details of a non-native causal error", func() {
+			logger.LogCall(request, nonNativeError)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `call method [params: 9 B, error: -32603 internal server error, caused by: <error>]`,
+					IsDebug: false,
+				},
+			))
+		})
+	})
+
+	Describe("func LogError()", func() {
+		It("logs details of a native error response", func() {
+			logger.LogError(requestSet, nativeError)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `error: -32601 method not found`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("logs details of a native error response with a non-standard message", func() {
+			logger.LogError(requestSet, nativeErrorNonStandardMessage)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `error: -32601 method not found, responded with: <message>`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("logs details of a non-native causal error", func() {
+			logger.LogError(requestSet, nonNativeError)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `error: -32603 internal server error, caused by: <error>`,
 					IsDebug: false,
 				},
 			))
