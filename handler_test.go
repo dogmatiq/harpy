@@ -3,21 +3,16 @@ package harpy_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 
-	"github.com/dogmatiq/dodeca/logging"
 	. "github.com/jmalloc/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ Exchanger = (*HandlerInvoker)(nil)
-
-var _ = Describe("type HandlerInvoker", func() {
+var _ = Describe("type Router", func() {
 	var (
 		request Request
-		logger  *logging.BufferedLogger
-		stage   *HandlerInvoker
+		router  Router
 	)
 
 	BeforeEach(func() {
@@ -28,122 +23,90 @@ var _ = Describe("type HandlerInvoker", func() {
 			Parameters: json.RawMessage(`[1, 2, 3]`),
 		}
 
-		logger = &logging.BufferedLogger{
-			CaptureDebug: true,
-		}
-
-		stage = &HandlerInvoker{
-			Handler: func(context.Context, Request) (interface{}, error) {
-				return nil, nil
-			},
-			Logger: logger,
-		}
+		router = Router{}
 	})
 
 	Describe("func Call()", func() {
-		It("passes the request to the handler function", func() {
-			called := false
+		When("there is a route for the method", func() {
+			It("calls the associated handler", func() {
+				called := false
 
-			stage.Handler = func(
-				_ context.Context,
-				req Request,
-			) (interface{}, error) {
-				called = true
-				Expect(req).To(Equal(req))
-				return nil, nil
-			}
+				router["<method>"] = func(
+					_ context.Context,
+					req Request,
+				) (interface{}, error) {
+					called = true
+					Expect(req).To(Equal(req))
+					return nil, nil
+				}
 
-			stage.Call(context.Background(), request)
-			Expect(called).To(BeTrue())
+				router.Call(context.Background(), request)
+				Expect(called).To(BeTrue())
+			})
+
+			When("the handler succeeds", func() {
+				var result interface{}
+
+				BeforeEach(func() {
+					result = 456
+
+					router["<method>"] = func(
+						context.Context,
+						Request,
+					) (interface{}, error) {
+						return result, nil
+					}
+				})
+
+				It("returns a success response that contains the marshaled result", func() {
+					res := router.Call(context.Background(), request)
+					Expect(res).To(Equal(SuccessResponse{
+						Version:   `2.0`,
+						RequestID: json.RawMessage(`123`),
+						Result:    json.RawMessage(`456`),
+					}))
+				})
+			})
+
+			When("the handler returns an error", func() {
+				var err error
+
+				BeforeEach(func() {
+					err = NewError(789, WithMessage("<error>"))
+
+					router["<method>"] = func(
+						context.Context,
+						Request,
+					) (interface{}, error) {
+						return nil, err
+					}
+				})
+
+				It("returns an error response", func() {
+					res := router.Call(context.Background(), request)
+					Expect(res).To(Equal(ErrorResponse{
+						Version:   `2.0`,
+						RequestID: json.RawMessage(`123`),
+						Error: ErrorInfo{
+							Code:    789,
+							Message: "<error>",
+						},
+					}))
+				})
+			})
 		})
 
-		When("the handler succeeds", func() {
-			var result interface{}
-
-			BeforeEach(func() {
-				result = 456
-
-				stage.Handler = func(
-					context.Context,
-					Request,
-				) (interface{}, error) {
-					return result, nil
-				}
-			})
-
-			It("logs the invocation", func() {
-				stage.Call(context.Background(), request)
-
-				Expect(logger.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `✓ '<method>' CALL`,
-						IsDebug: false,
-					},
-				))
-			})
-
-			It("returns a success response that contains the marshaled result", func() {
-				res := stage.Call(context.Background(), request)
-				Expect(res).To(Equal(SuccessResponse{
-					Version:   `2.0`,
-					RequestID: json.RawMessage(`123`),
-					Result:    json.RawMessage(`456`),
-				}))
-			})
-		})
-
-		When("the handler returns an error", func() {
-			var err error
-
-			BeforeEach(func() {
-				err = NewError(789, WithMessage("<error>"))
-
-				stage.Handler = func(
-					context.Context,
-					Request,
-				) (interface{}, error) {
-					return nil, err
-				}
-			})
-
-			It("logs the invocation", func() {
-				stage.Call(context.Background(), request)
-
-				Expect(logger.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `✗ '<method>' CALL  [789] <error>`,
-						IsDebug: false,
-					},
-				))
-			})
-
+		When("there is no route for the method", func() {
 			It("returns an error response", func() {
-				res := stage.Call(context.Background(), request)
+				res := router.Call(context.Background(), request)
 				Expect(res).To(Equal(ErrorResponse{
 					Version:   `2.0`,
 					RequestID: json.RawMessage(`123`),
 					Error: ErrorInfo{
-						Code:    789,
-						Message: "<error>",
+						Code:    MethodNotFoundCode,
+						Message: "method not found",
 					},
 				}))
-			})
-
-			When("the error is unrecognised", func() {
-				BeforeEach(func() {
-					err = errors.New("<error>")
-				})
-
-				It("logs the cause of the internal error", func() {
-					stage.Call(context.Background(), request)
-
-					Expect(logger.Messages()).To(ContainElement(
-						logging.BufferedLogMessage{
-							Message: `✗ '<method>' CALL  [-32603] internal server error  [cause: <error>]`,
-							IsDebug: false,
-						},
-					))
-				})
 			})
 		})
 	})
@@ -153,49 +116,30 @@ var _ = Describe("type HandlerInvoker", func() {
 			request.ID = nil
 		})
 
-		It("passes the request to the handler", func() {
-			called := false
+		When("when there is a route for the method", func() {
+			It("calls the associated handler", func() {
+				called := false
 
-			stage.Handler = func(
-				_ context.Context,
-				req Request,
-			) (interface{}, error) {
-				called = true
-				Expect(req).To(Equal(req))
-				return nil, nil
-			}
+				router["<method>"] = func(
+					_ context.Context,
+					req Request,
+				) (interface{}, error) {
+					called = true
+					Expect(req).To(Equal(req))
+					return nil, nil
+				}
 
-			stage.Notify(context.Background(), request)
-			Expect(called).To(BeTrue())
+				router.Notify(context.Background(), request)
+				Expect(called).To(BeTrue())
+			})
 		})
 
-		It("logs the invocation when the handler succeeds", func() {
-			stage.Notify(context.Background(), request)
-
-			Expect(logger.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `✓ '<method>' NOTIFY`,
-					IsDebug: false,
-				},
-			))
-		})
-
-		It("logs the invocation when the handler fails", func() {
-			stage.Handler = func(
-				_ context.Context,
-				req Request,
-			) (interface{}, error) {
-				return nil, errors.New("<error>")
-			}
-
-			stage.Notify(context.Background(), request)
-
-			Expect(logger.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `✗ '<method>' NOTIFY  <error>`,
-					IsDebug: false,
-				},
-			))
+		When("there is no route for the method", func() {
+			It("ignores the request", func() {
+				Expect(func() {
+					router.Notify(context.Background(), request)
+				}).NotTo(Panic())
+			})
 		})
 	})
 })

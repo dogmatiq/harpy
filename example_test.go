@@ -17,11 +17,10 @@ func Example() {
 	// Start the HTTP server.
 	http.ListenAndServe(
 		":8080",
-		&httptransport.Handler{ // Use HTTP to deliver requests/responses
-			Exchanger: &harpy.ExchangeLogger{ // Log complete request/response bodies
-				Next: &harpy.HandlerInvoker{ // Dispatch to a harpy.Handler
-					Handler: server.Handle, // Use the key/value server as the handler
-				},
+		&httptransport.Handler{
+			Exchanger: harpy.Router{
+				"Get": server.Get,
+				"Set": server.Set,
 			},
 		},
 	)
@@ -33,22 +32,8 @@ type KeyValueServer struct {
 	m sync.Map
 }
 
-// Handle handles a JSON-RPC request.
-//
-// It conforms the harpy.Handler type.
-func (s *KeyValueServer) Handle(ctx context.Context, req harpy.Request) (interface{}, error) {
-	switch req.Method {
-	case "Get":
-		return s.get(req)
-	case "Set":
-		return nil, s.set(req)
-	default:
-		return nil, harpy.MethodNotFound()
-	}
-}
-
-// get returns the value associated with a key.
-func (s *KeyValueServer) get(req harpy.Request) (interface{}, error) {
+// Get returns the value associated with a key.
+func (s *KeyValueServer) Get(_ context.Context, req harpy.Request) (interface{}, error) {
 	var params struct {
 		Key string `json:"key"`
 	}
@@ -61,17 +46,17 @@ func (s *KeyValueServer) get(req harpy.Request) (interface{}, error) {
 	return value, nil
 }
 
-// set associates a value with a key.
-func (s *KeyValueServer) set(req harpy.Request) error {
+// Set associates a value with a key.
+func (s *KeyValueServer) Set(_ context.Context, req harpy.Request) (interface{}, error) {
 	var params struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	}
 
 	if err := req.UnmarshalParameters(&params); err != nil {
-		return err
+		return nil, err
 	}
 
 	s.m.Store(params.Key, params.Value)
-	return nil
+	return nil, nil
 }

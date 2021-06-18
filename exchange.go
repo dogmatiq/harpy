@@ -7,14 +7,14 @@ import (
 // An Exchanger performs a JSON-RPC exchange, wherein a request is "exchanged"
 // for its response.
 //
-// An Exchanger differs from a Handler in that an Exchanger is fully responsible
-// for producing a valid response to a call, and handling all error conditions.
-// It therefore has no facility to return an error.
+// The Exchanger is responsible for resolving any error conditions. In the case
+// of a JSON-RPC call it must also provide the response. It therefore has no
+// facility to return an error.
 type Exchanger interface {
 	// Call handles call request and returns its response.
 	Call(context.Context, Request) Response
 
-	// Notify handels a notification request, which does not expect a response.
+	// Notify handles a notification request, which does not expect a response.
 	Notify(context.Context, Request)
 }
 
@@ -24,6 +24,8 @@ type Exchanger interface {
 type ResponseWriter interface {
 	// WriteError writes an error response that is a result of some problem with
 	// the request set as a whole.
+	//
+	// The given request set is likely invalid or empty.
 	WriteError(context.Context, RequestSet, ErrorResponse) error
 
 	// WriteUnbatched writes a response to an individual request that was not
