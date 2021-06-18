@@ -174,7 +174,9 @@ func ParseRequestSet(r io.Reader) (RequestSet, error) {
 			continue
 		}
 
-		br.UnreadRune()
+		if err := br.UnreadRune(); err != nil {
+			panic(err) // only occurs if a rune hasn't already been read
+		}
 
 		if ch == '[' {
 			return parseBatchRequest(br)
