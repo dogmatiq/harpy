@@ -34,7 +34,7 @@ var _ = Describe("type Request", func() {
 
 	Describe("func Validate()", func() {
 		DescribeTable(
-			"it returns true when the request is valid",
+			"it returns true when the request is valid (request IDs)",
 			func(id json.RawMessage) {
 				req := Request{
 					Version: "2.0",
@@ -49,6 +49,23 @@ var _ = Describe("type Request", func() {
 			Entry("decimal ID", json.RawMessage(`1.2`)),
 			Entry("null ID", json.RawMessage(`null`)),
 			Entry("absent ID", nil),
+		)
+
+		DescribeTable(
+			"it returns true when the request is valid (parameters)",
+			func(params json.RawMessage) {
+				req := Request{
+					Version:    "2.0",
+					Parameters: params,
+				}
+
+				_, ok := req.Validate()
+				Expect(ok).To(BeTrue())
+			},
+			Entry("array params", json.RawMessage(`[]`)),
+			Entry("object params", json.RawMessage(`{}`)),
+			Entry("null params", json.RawMessage(`null`)),
+			Entry("absent params", nil),
 		)
 
 		It("returns an error if the JSON-RPC version is incorrect", func() {
@@ -93,6 +110,22 @@ var _ = Describe("type Request", func() {
 			Expect(ok).To(BeFalse())
 			Expect(err.Code()).To(Equal(ParseErrorCode))
 			Expect(err.Unwrap()).To(MatchError("unexpected end of JSON input"))
+		})
+
+		It("returns an error if the parameters are an invalid type", func() {
+			req := Request{
+				Version:    "2.0",
+				Parameters: json.RawMessage(`123`),
+			}
+
+			err, ok := req.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidParametersCode,
+					WithMessage(`parameters must be an array, an object, or null`),
+				),
+			))
 		})
 	})
 

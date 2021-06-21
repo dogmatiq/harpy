@@ -82,6 +82,24 @@ func (r Request) Validate() (Error, bool) {
 		return validateRequestID(r.ID)
 	}
 
+	// Do our best to validate the type of the parameters without actually
+	// unmarshaling them. It is expected that a full unmarshal will be performed
+	// in a handler via the UnmarshalParameters() method.
+	if r.Parameters == nil {
+		return Error{}, true
+	}
+
+	if bytes.EqualFold(r.Parameters, []byte(`null`)) {
+		return Error{}, true
+	}
+
+	if len(r.Parameters) < 2 || (r.Parameters[0] != '{' && r.Parameters[0] != '[') {
+		return NewErrorWithReservedCode(
+			InvalidParametersCode,
+			WithMessage(`parameters must be an array, an object, or null`),
+		), false
+	}
+
 	return Error{}, true
 }
 
