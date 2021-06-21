@@ -6,7 +6,8 @@
 [![Documentation](https://img.shields.io/badge/go.dev-reference-007d9c)](https://pkg.go.dev/github.com/dogmatiq/harpy)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dogmatiq/harpy)](https://goreportcard.com/report/github.com/dogmatiq/harpy)
 
-Harpy is a toolkit for writing JSON-RPC v2.0 servers with Go.
+Harpy is a toolkit for writing [JSON-RPC v2.0](https://www.jsonrpc.org/specification)
+servers with Go.
 
 ## Transports
 
