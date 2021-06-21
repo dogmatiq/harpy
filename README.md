@@ -9,13 +9,13 @@
 Harpy is a toolkit for writing [JSON-RPC v2.0](https://www.jsonrpc.org/specification)
 servers with Go.
 
+## Example
+
+The [included example](example_test.go) demonstrates how to implement a very
+simple in-memory key/value store with a JSON-RPC API.
+
 ## Transports
 
 Harpy provides an [HTTP transport](https://pkg.go.dev/github.com/dogmatiq/harpy@main/transport/httptransport)
 out of the box, however JSON-RPC 2.0 is a transport-agnostic protocol and as
 such Harpy's API attempts to make it easy to implement other transports.
-
-## Example Server
-
-The [included example](example_test.go) demonstrates how to implement a
-very simple in-memory key/value store with a JSON-RPC API.
