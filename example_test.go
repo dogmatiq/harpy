@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/jmalloc/harpy"
-	"github.com/jmalloc/harpy/transport/httptransport"
+	"github.com/dogmatiq/harpy"
+	"github.com/dogmatiq/harpy/transport/httptransport"
 )
 
 // Example shows how to implement a very basic JSON-RPC key/value server using

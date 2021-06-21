@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/dogmatiq/dodeca/logging"
-	"github.com/jmalloc/harpy"
-	. "github.com/jmalloc/harpy"
+	"github.com/dogmatiq/harpy"
+	. "github.com/dogmatiq/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

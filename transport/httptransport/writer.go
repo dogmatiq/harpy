@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/jmalloc/harpy"
+	"github.com/dogmatiq/harpy"
 )
 
 // ResponseWriter is an implementation of harpy.ResponseWriter that writes

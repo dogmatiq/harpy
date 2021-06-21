@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/dogmatiq/dodeca/logging"
-	. "github.com/jmalloc/harpy"
-	. "github.com/jmalloc/harpy/internal/fixtures"
+	. "github.com/dogmatiq/harpy"
+	. "github.com/dogmatiq/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

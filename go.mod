@@ -1,4 +1,4 @@
-module github.com/jmalloc/harpy
+module github.com/dogmatiq/harpy
 
 go 1.16
 

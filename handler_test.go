@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	. "github.com/jmalloc/harpy"
+	. "github.com/dogmatiq/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

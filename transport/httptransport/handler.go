@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/dogmatiq/dodeca/logging"
-	"github.com/jmalloc/harpy"
+	"github.com/dogmatiq/harpy"
 )
 
 // mediaType is the MIME media-type for JSON-RPC requests and responses when

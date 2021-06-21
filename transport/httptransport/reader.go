@@ -5,7 +5,7 @@ import (
 	"mime"
 	"net/http"
 
-	"github.com/jmalloc/harpy"
+	"github.com/dogmatiq/harpy"
 )
 
 // RequestSetReader is an implementation of harpy.RequestSetReader that reads a

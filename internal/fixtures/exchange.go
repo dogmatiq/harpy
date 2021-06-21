@@ -3,7 +3,7 @@ package fixtures
 import (
 	"context"
 
-	"github.com/jmalloc/harpy"
+	"github.com/dogmatiq/harpy"
 )
 
 // ExchangerStub is a test implementation of the Exchanger interface.
