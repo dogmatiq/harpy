@@ -2,6 +2,9 @@ package harpy
 
 import (
 	"context"
+	"sync"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // An Exchanger performs a JSON-RPC exchange, wherein a request is "exchanged"
@@ -24,9 +27,9 @@ type Exchanger interface {
 type RequestSetReader interface {
 	// Read reads the next RequestSet that is to be processed.
 	//
-	// If there is a problem parsing the request or the request is malformed, an
-	// Error is returned. Any other non-nil error should be considered an I/O
-	// error. Note that IO error messages are shown to the client.
+	// It returns ctx.Err() if ctx is canceled while waiting to read the next
+	// request set. If request set data is read but cannot be parsed a native
+	// JSON-RPC Error is returned. Any other error indicates an IO error.
 	Read(ctx context.Context) (RequestSet, error)
 }
 
@@ -36,17 +39,15 @@ type RequestSetReader interface {
 type ResponseWriter interface {
 	// WriteError writes an error response that is a result of some problem with
 	// the request set as a whole.
-	//
-	// The given request set is likely invalid or empty.
-	WriteError(context.Context, RequestSet, ErrorResponse) error
+	WriteError(ErrorResponse) error
 
 	// WriteUnbatched writes a response to an individual request that was not
 	// part of a batch.
-	WriteUnbatched(context.Context, Request, Response) error
+	WriteUnbatched(Request, Response) error
 
 	// WriteBatched writes a response to an individual request that was part of
 	// a batch.
-	WriteBatched(context.Context, Request, Response) error
+	WriteBatched(Request, Response) error
 
 	// Close is called to signal that there are no more responses to be sent.
 	Close() error
@@ -59,19 +60,17 @@ type ResponseWriter interface {
 // multiple requests each request is passed to the exchanger on its own
 // goroutine.
 //
-// w is used to write responses to each request. Calls to the methods on w are
+// r is used to obtain a the next RequestSet to process, and w is used to write
+// responses to each request in that set. Calls to the methods on w are
 // serialized and do not require further synchronization.
+//
+// If ctx is canceled or exceeds its deadline, e is responsible for aborting
+// execution and returning a suitable JSON-RPC response describing the
+// cancelation.
 //
 // If w produces an error, the context passed to e is canceled and Exchange()
 // returns the ResponseWriter's error. Execution blocks until all goroutines are
 // completed, but no more responses are written.
-//
-// If ctx is canceled or exceeds its deadline, e is responsible for aborting
-// execution and returning a suitable JSON-RPC response describing the
-// cancelation. Exchange() does NOT return the context's error.
-//
-// Any error returned by Exchange() indicates an IO error produced by either r
-// or w.
 func Exchange(
 	ctx context.Context,
 	e Exchanger,
@@ -84,69 +83,114 @@ func Exchange(
 	}
 
 	defer func() {
-		// Always close the responder, but only return its error if there was no
+		// Always close the writer, but only return its error if there was no
 		// more specific error already.
 		if e := w.Close(); e != nil {
+			l.LogWriterError(e)
+
 			if err == nil {
 				err = e
 			}
 		}
 	}()
 
-	rs, err := r.Read(ctx)
-	if err != nil {
-		if _, ok := err.(Error); ok {
-			res := NewErrorResponse(nil, err)
-			l.LogError(rs, res)
-			return w.WriteError(ctx, rs, res)
-		}
-
-		// As per the RequestSetReader interface, any non-nil error that is NOT
-		// an Error is considered an I/O error.
-		reportedErr := NewErrorWithReservedCode(
-			InternalErrorCode,
-			WithMessage("unable to read request set: %s", err.Error()),
-		)
-
-		res := NewErrorResponse(nil, reportedErr)
-		l.LogError(rs, res)
-
-		// We've already seen an IO error when reading, attempt to write the
-		// response, but ignore any errors when doing so, preferring instead to
-		// return the original read error. It's likely that writes will fail if
-		// reads have already failed.
-		w.WriteError(ctx, rs, res) // nolint:errcheck
-
+	rs, ok, err := readRequestSet(ctx, r, w, l)
+	if !ok || err != nil {
 		return err
 	}
 
-	if err, ok := rs.Validate(); !ok {
-		res := ErrorResponse{
-			Version: jsonRPCVersion,
-			Error: ErrorInfo{
-				Code:    err.Code(),
-				Message: err.Message(),
-			},
-		}
-
-		l.LogError(rs, res)
-		return w.WriteError(ctx, rs, res)
-	}
-
 	if rs.IsBatch {
-		return exchangeBatch(ctx, rs.Requests, e, w, l)
+		return exchangeBatch(ctx, e, rs.Requests, w, l)
 	}
 
-	return exchangeSingle(ctx, rs.Requests[0], e, w, l)
+	return exchangeSingle(ctx, e, rs.Requests[0], w, l)
 }
 
-// exchangeSingle performs a JSON-RPC exchange for a single request. That is, a
-// request that is not part of a batch.
-func exchangeSingle(
+// readRequestSet returns the next request set from r.
+//
+// It returns an error if ctx has been canceled or an IO error occurs such that
+// Exchange() should return to the caller.
+//
+// Otherwise; if ok is true the request set is valid and needs to be processed.
+// If ok is false, there was some other problem with the request set that has
+// already been reported to the client.
+func readRequestSet(
 	ctx context.Context,
-	req Request,
-	e Exchanger,
+	r RequestSetReader,
 	w ResponseWriter,
+	l ExchangeLogger,
+) (_ RequestSet, ok bool, _ error) {
+	rs, readErr := r.Read(ctx)
+	if readErr != nil {
+		if readErr == ctx.Err() {
+			// The context was canceled while waiting for the next request set,
+			// return the error to the caller without doing anything. The would be
+			// the typical path used to abort execution of a blocked call to
+			// Exchange().
+			return RequestSet{}, false, readErr
+		}
+
+		if _, ok := readErr.(Error); ok {
+			// There was no problem reading data for the request set, but it could
+			// not be parsed as JSON.
+			res := NewErrorResponse(nil, readErr)
+			l.LogError(res)
+
+			if writeErr := w.WriteError(res); writeErr != nil {
+				l.LogWriterError(writeErr)
+				return RequestSet{}, false, writeErr
+			}
+
+			return RequestSet{}, false, nil
+		}
+
+		// Otherwise; any non-nil error is an IO error. We still try to report
+		// something meaningful to the client, but it's likely that if reading
+		// failed that writing will also fail.
+		res := NewErrorResponse(
+			nil,
+			NewErrorWithReservedCode(
+				InternalErrorCode,
+				WithMessage("unable to read JSON-RPC request"),
+				WithCause(readErr),
+			),
+		)
+		l.LogError(res)
+
+		if writeErr := w.WriteError(res); writeErr != nil {
+			l.LogWriterError(writeErr)
+			// Don't return the writeErr, preferring instead to return the
+			// readErr that happened first.
+		}
+
+		return RequestSet{}, false, readErr
+	}
+
+	err, ok := rs.Validate()
+	if !ok {
+		// The request data is well-formed JSON but not a valid JSON-RPC request
+		// or batch.
+		res := newNativeErrorResponse(nil, err)
+		l.LogError(res)
+
+		if writeErr := w.WriteError(res); writeErr != nil {
+			l.LogWriterError(writeErr)
+			return RequestSet{}, false, writeErr
+		}
+
+		return RequestSet{}, false, nil
+	}
+
+	return rs, true, nil
+}
+
+// exchangeOne performs a JSON-RPC exchange for one request and writes the
+// response using w.
+func exchangeOne(
+	ctx context.Context,
+	e Exchanger,
+	req Request,
+	w func(Request, Response) error,
 	l ExchangeLogger,
 ) error {
 	if req.IsNotification() {
@@ -158,106 +202,103 @@ func exchangeSingle(
 	res := e.Call(ctx, req)
 	l.LogCall(req, res)
 
-	return w.WriteUnbatched(ctx, req, res)
+	if err := w(req, res); err != nil {
+		l.LogWriterError(err)
+		return err
+	}
+
+	return nil
 }
 
-// exchangeBatch performs a JSON-RPC exchange for a batch request.
+// exchangeSingle performs a JSON-RPC exchange for a single (non-batched)
+// request.
+func exchangeSingle(
+	ctx context.Context,
+	e Exchanger,
+	req Request,
+	w ResponseWriter,
+	l ExchangeLogger,
+) error {
+	return exchangeOne(
+		ctx,
+		e,
+		req,
+		w.WriteUnbatched,
+		l,
+	)
+}
+
+// exchangeBatch performs a JSON-RPC exchange for a batch of requests.
 func exchangeBatch(
 	ctx context.Context,
-	requests []Request,
 	e Exchanger,
+	requests []Request,
 	w ResponseWriter,
 	l ExchangeLogger,
 ) error {
 	if len(requests) > 1 {
 		// If there is actually more than one request then we handle each in its
 		// own goroutine.
-		return exchangeMany(ctx, requests, e, w, l)
+		return exchangeMany(ctx, e, requests, w, l)
 	}
 
 	// Otherwise we have a batch that happens to contain a single request. We
 	// avoid the overhead and latency of starting the extra goroutines and
 	// awaiting their completion.
-	req := requests[0]
-
-	if req.IsNotification() {
-		e.Notify(ctx, req)
-		l.LogNotification(req)
-		return nil
-	}
-
-	res := e.Call(ctx, req)
-	l.LogCall(req, res)
-
-	return w.WriteBatched(ctx, req, res)
+	return exchangeOne(
+		ctx,
+		e,
+		requests[0],
+		w.WriteBatched,
+		l,
+	)
 }
 
 // exchangeMany performs an exchange for multiple requests in parallel.
 func exchangeMany(
 	ctx context.Context,
-	requests []Request,
 	e Exchanger,
+	requests []Request,
 	w ResponseWriter,
 	l ExchangeLogger,
 ) error {
-	type exchange struct {
-		request  Request
-		response Response
-	}
 
-	// Create a channel of exchanges on which each response is received. The
-	// channel is buffered to ensure that writes do not block even if the
-	// ResponseWriter panics.
-	pending := len(requests)
-	exchanges := make(chan exchange, pending)
+	var (
+		m  sync.Mutex // synchronise access to w and ok
+		ok = true
+	)
 
-	// Create a cancelable context so we can abort pending goroutines if the
-	// ResponseWriter returns an error.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	// Create an errgroup to abort any pending calls to the exchanger if an
+	// error occurs when writing responses.
+	g, ctx := errgroup.WithContext(ctx)
 
 	// Start a goroutine for each request.
 	for _, req := range requests {
-		x := exchange{request: req}
+		req := req // capture loop variable
 
-		go func() {
-			if x.request.IsNotification() {
-				e.Notify(ctx, x.request)
-				l.LogNotification(x.request)
-			} else {
-				x.response = e.Call(ctx, x.request)
-				l.LogCall(x.request, x.response)
-			}
+		g.Go(func() error {
+			return exchangeOne(
+				ctx,
+				e,
+				req,
+				func(req Request, res Response) error {
+					m.Lock()
+					defer m.Unlock()
 
-			// We always send the exchange over the channel even for
-			// notifications so that we can use it to determine when all
-			// goroutines are complete.
-			exchanges <- x
-		}()
+					// Only write the response if there has not already been
+					// an error writing responses.
+					if ok {
+						err := w.WriteBatched(req, res)
+						ok = err == nil
+						return err
+					}
+
+					return nil
+				},
+				l,
+			)
+		})
 	}
 
-	var err error
-
-	// Wait for each pending goroutine to complete.
-	for x := range exchanges {
-		if err == nil && !x.request.IsNotification() {
-			// We only use the ResponseWriter if the request is a call and no
-			// prior error has occurred.
-			err = w.WriteBatched(ctx, x.request, x.response)
-
-			if err != nil {
-				// We've seen an error for the first time. We cancel the context
-				// to abort pending goroutines but continue to wait for them to
-				// finish.
-				cancel()
-			}
-		}
-
-		pending--
-		if pending == 0 {
-			break
-		}
-	}
-
-	return err
+	return g.Wait()
 }

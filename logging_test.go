@@ -14,7 +14,6 @@ import (
 var _ = Context("type DefaultExchangeLogger", func() {
 	var (
 		request                       harpy.Request
-		requestSet                    harpy.RequestSet
 		success                       harpy.SuccessResponse
 		nativeError                   harpy.ErrorResponse
 		nativeErrorNonStandardMessage harpy.ErrorResponse
@@ -31,10 +30,6 @@ var _ = Context("type DefaultExchangeLogger", func() {
 			Parameters: json.RawMessage(`[1, 2, 3]`),
 		}
 
-		requestSet = harpy.RequestSet{
-			Requests: []harpy.Request{request},
-		}
-
 		success = harpy.NewSuccessResponse(request.ID, 123).(harpy.SuccessResponse)
 		nativeError = harpy.NewErrorResponse(request.ID, MethodNotFound())
 		nativeErrorNonStandardMessage = harpy.NewErrorResponse(request.ID, MethodNotFound(WithMessage("<message>")))
@@ -47,6 +42,41 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		logger = DefaultExchangeLogger{
 			Target: buffer,
 		}
+	})
+
+	Describe("func LogError()", func() {
+		It("logs details of a native error response", func() {
+			logger.LogError(nativeError)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `error: -32601 method not found`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("logs details of a native error response with a non-standard message", func() {
+			logger.LogError(nativeErrorNonStandardMessage)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `error: -32601 method not found, responded with: <message>`,
+					IsDebug: false,
+				},
+			))
+		})
+
+		It("logs details of a non-native causal error", func() {
+			logger.LogError(nonNativeError)
+
+			Expect(buffer.Messages()).To(ContainElement(
+				logging.BufferedLogMessage{
+					Message: `error: -32603 internal server error, caused by: <error>`,
+					IsDebug: false,
+				},
+			))
+		})
 	})
 
 	Describe("func LogNotification()", func() {
@@ -159,35 +189,13 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		})
 	})
 
-	Describe("func LogError()", func() {
-		It("logs details of a native error response", func() {
-			logger.LogError(requestSet, nativeError)
+	Describe("func LogWriterError()", func() {
+		It("logs the error", func() {
+			logger.LogWriterError(errors.New("<error>"))
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
-					Message: `error: -32601 method not found`,
-					IsDebug: false,
-				},
-			))
-		})
-
-		It("logs details of a native error response with a non-standard message", func() {
-			logger.LogError(requestSet, nativeErrorNonStandardMessage)
-
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `error: -32601 method not found, responded with: <message>`,
-					IsDebug: false,
-				},
-			))
-		})
-
-		It("logs details of a non-native causal error", func() {
-			logger.LogError(requestSet, nonNativeError)
-
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `error: -32603 internal server error, caused by: <error>`,
+					Message: `unable to write JSON-RPC response: <error>`,
 					IsDebug: false,
 				},
 			))

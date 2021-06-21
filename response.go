@@ -106,6 +106,7 @@ func newNativeErrorResponse(requestID json.RawMessage, nerr Error) ErrorResponse
 			Code:    nerr.Code(),
 			Message: nerr.Message(),
 		},
+		ServerError: nerr.cause,
 	}
 
 	if data := nerr.Data(); data != nil {

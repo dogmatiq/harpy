@@ -32,10 +32,10 @@ const (
 
 // Read reads the next RequestSet that is to be processed.
 //
-// If there is a problem parsing the request or the request is malformed, an
-// Error is returned. Any other non-nil error should be considered an I/O
-// error. Note that IO error messages are shown to the client.
-func (r *RequestSetReader) Read(ctx context.Context) (harpy.RequestSet, error) {
+// It returns ctx.Err() if ctx is canceled while waiting to read the next
+// request set. If request set data is read but cannot be parsed a native
+// JSON-RPC Error is returned. Any other error indicates an IO error.
+func (r *RequestSetReader) Read(_ context.Context) (harpy.RequestSet, error) {
 	// Check HTTP method is POST.
 	if r.Request.Method != http.MethodPost {
 		return harpy.RequestSet{}, harpy.NewErrorWithReservedCode(

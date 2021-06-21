@@ -1,7 +1,6 @@
 package httptransport
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 
@@ -25,19 +24,15 @@ var (
 	comma      = []byte(`,`)
 )
 
-// WriteError writes an error response that is a result of some problem with the
-// request set as a whole.
+// WriteError writes an error response that is a result of some problem with
+// the request set as a whole.
 //
 // It immediately writes the HTTP response headers followed by the HTTP body.
 //
 // If the error code is pre-defined by the JSON-RPC specification the HTTP
 // status code is set to the most appropriate equivalent, otherwise it is set to
 // 500 (Internal Server Error).
-func (w *ResponseWriter) WriteError(
-	_ context.Context,
-	rs harpy.RequestSet,
-	res harpy.ErrorResponse,
-) error {
+func (w *ResponseWriter) WriteError(res harpy.ErrorResponse) error {
 	status := httpStatusFromError(res.Error)
 	if status == http.StatusOK {
 		status = http.StatusInternalServerError
@@ -57,11 +52,7 @@ func (w *ResponseWriter) WriteError(
 //
 // Application-defined JSON-RPC errors always result in a HTTP 200 (OK), as they
 // considered part of normal operation of the transport.
-func (w *ResponseWriter) WriteUnbatched(
-	_ context.Context,
-	req harpy.Request,
-	res harpy.Response,
-) error {
+func (w *ResponseWriter) WriteUnbatched(req harpy.Request, res harpy.Response) error {
 	status := http.StatusOK
 	if e, ok := res.(harpy.ErrorResponse); ok {
 		status = httpStatusFromError(e.Error)
@@ -80,11 +71,7 @@ func (w *ResponseWriter) WriteUnbatched(
 //
 // The HTTP status code is always 200 (OK), as even if res is an ErrorResponse,
 // other responses in the batch may indicate a success.
-func (w *ResponseWriter) WriteBatched(
-	_ context.Context,
-	req harpy.Request,
-	res harpy.Response,
-) error {
+func (w *ResponseWriter) WriteBatched(req harpy.Request, res harpy.Response) error {
 	separator := comma
 
 	if !w.arrayOpen {

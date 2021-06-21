@@ -13,9 +13,11 @@ import (
 type ExchangeLogger interface {
 	// LogError logs about an error that is a result of some problem with the
 	// request set as a whole.
-	//
-	// The given request set is likely invalid or empty.
-	LogError(rs RequestSet, res ErrorResponse)
+	LogError(res ErrorResponse)
+
+	// LogWriterError logs about an error that occured when attempting to use a
+	// ResponseWriter.
+	LogWriterError(err error)
 
 	// LogNotification logs about a notification request.
 	LogNotification(req Request)
@@ -32,12 +34,16 @@ type DefaultExchangeLogger struct {
 
 // LogError writes an information about an error response that is a result of
 // some problem with the request set as a whole.
-//
-// The given request set is likely invalid or empty.
-func (l DefaultExchangeLogger) LogError(rs RequestSet, res ErrorResponse) {
+func (l DefaultExchangeLogger) LogError(res ErrorResponse) {
 	var w strings.Builder
 	writeErrorResponseDetails(&w, res)
 	logging.LogString(l.Target, w.String())
+}
+
+// LogWriterError logs about an error that occured when attempting to use a
+// ResponseWriter.
+func (l DefaultExchangeLogger) LogWriterError(err error) {
+	logging.Log(l.Target, "unable to write JSON-RPC response: %s", err)
 }
 
 // LogNotification logs information about a notification request.

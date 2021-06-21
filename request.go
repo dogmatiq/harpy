@@ -157,7 +157,7 @@ type RequestSet struct {
 // ParseRequestSet reads and parses a JSON-RPC request or request batch from r.
 //
 // If there is a problem parsing the request or the request is malformed, an
-// Error is returned. Any other non-nil error should be considered an I/O error.
+// Error is returned. Any other non-nil error should be considered an IO error.
 //
 // On success it returns a request set containing well-formed (but not
 // necessarily valid) requests.

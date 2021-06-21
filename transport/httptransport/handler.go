@@ -26,13 +26,11 @@ type Handler struct {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := logging.Prefix(h.Logger, "[%s] ", r.RemoteAddr)
 
-	if err := harpy.Exchange(
+	harpy.Exchange( // nolint:errcheck // error already logged, nothing more to do
 		r.Context(),
 		h.Exchanger,
 		&RequestSetReader{Request: r},
 		&ResponseWriter{Target: w},
 		harpy.DefaultExchangeLogger{Target: logger},
-	); err != nil {
-		logging.Log(logger, "unable to write HTTP response: %s", err)
-	}
+	)
 }
