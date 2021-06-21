@@ -33,6 +33,9 @@ type KeyValueServer struct {
 }
 
 // Get returns the value associated with a key.
+//
+// It returns an application-defined error if there is no value associated with
+// this key.
 func (s *KeyValueServer) Get(_ context.Context, req harpy.Request) (interface{}, error) {
 	var params struct {
 		Key string `json:"key"`
@@ -42,8 +45,14 @@ func (s *KeyValueServer) Get(_ context.Context, req harpy.Request) (interface{},
 		return nil, err
 	}
 
-	value, _ := s.m.Load(params.Key)
-	return value, nil
+	if value, ok := s.m.Load(params.Key); ok {
+		return value, nil
+	}
+
+	return nil, harpy.NewError(
+		100, // 100 is our example application's error code for "no such key"
+		harpy.WithMessage("no such key"),
+	)
 }
 
 // Set associates a value with a key.
@@ -58,5 +67,6 @@ func (s *KeyValueServer) Set(_ context.Context, req harpy.Request) (interface{},
 	}
 
 	s.m.Store(params.Key, params.Value)
+
 	return nil, nil
 }
