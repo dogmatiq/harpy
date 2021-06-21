@@ -45,8 +45,8 @@ func (s *RequestSetReaderStub) Read(ctx context.Context) (harpy.RequestSet, erro
 // ResponseWriterStub is a test implementation of the ResponseWriter interface.
 type ResponseWriterStub struct {
 	WriteErrorFunc     func(harpy.ErrorResponse) error
-	WriteUnbatchedFunc func(harpy.Request, harpy.Response) error
-	WriteBatchedFunc   func(harpy.Request, harpy.Response) error
+	WriteUnbatchedFunc func(harpy.Response) error
+	WriteBatchedFunc   func(harpy.Response) error
 	CloseFunc          func() error
 }
 
@@ -58,17 +58,17 @@ func (s *ResponseWriterStub) WriteError(res harpy.ErrorResponse) error {
 	return nil
 }
 
-func (s *ResponseWriterStub) WriteUnbatched(req harpy.Request, res harpy.Response) error {
+func (s *ResponseWriterStub) WriteUnbatched(res harpy.Response) error {
 	if s.WriteUnbatchedFunc != nil {
-		return s.WriteUnbatchedFunc(req, res)
+		return s.WriteUnbatchedFunc(res)
 	}
 
 	return nil
 }
 
-func (s *ResponseWriterStub) WriteBatched(req harpy.Request, res harpy.Response) error {
+func (s *ResponseWriterStub) WriteBatched(res harpy.Response) error {
 	if s.WriteBatchedFunc != nil {
-		return s.WriteBatchedFunc(req, res)
+		return s.WriteBatchedFunc(res)
 	}
 
 	return nil

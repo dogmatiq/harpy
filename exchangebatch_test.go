@@ -68,10 +68,10 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 			WriteErrorFunc: func(ErrorResponse) error {
 				panic("unexpected call to WriteErrorFunc()")
 			},
-			WriteUnbatchedFunc: func(Request, Response) error {
+			WriteUnbatchedFunc: func(Response) error {
 				panic("unexpected call to WriteUnbatchedFunc()")
 			},
-			WriteBatchedFunc: func(Request, Response) error {
+			WriteBatchedFunc: func(Response) error {
 				panic("unexpected call to WriteBatchedFunc()")
 			},
 			CloseFunc: func() error {
@@ -107,15 +107,11 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 			})
 
 			It("passes the request to the exchanger and writes a batched response", func() {
-				writer.WriteBatchedFunc = func(
-					req Request,
-					res Response,
-				) error {
-					Expect(req).To(Equal(requestA))
+				writer.WriteBatchedFunc = func(res Response) error {
 					Expect(res).To(Equal(
 						SuccessResponse{
 							Version:   "2.0",
-							RequestID: req.ID,
+							RequestID: json.RawMessage(`123`),
 							Result:    json.RawMessage(`"result of <method-a>"`),
 						},
 					))
@@ -140,10 +136,7 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 			})
 
 			It("logs and returns errors that occur when writing the response", func() {
-				writer.WriteBatchedFunc = func(
-					req Request,
-					res Response,
-				) error {
+				writer.WriteBatchedFunc = func(Response) error {
 					return errors.New("<write error>")
 				}
 
@@ -256,24 +249,16 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 		})
 
 		It("writes a batched response for each call (but not notifications)", func() {
-			type exchange struct {
-				request  Request
-				response Response
-			}
-
 			var (
 				m         sync.Mutex
-				exchanges []exchange
+				responses []Response
 			)
 
-			writer.WriteBatchedFunc = func(
-				req Request,
-				res Response,
-			) error {
+			writer.WriteBatchedFunc = func(res Response) error {
 				m.Lock()
 				defer m.Unlock()
 
-				exchanges = append(exchanges, exchange{req, res})
+				responses = append(responses, res)
 
 				return nil
 			}
@@ -287,22 +272,16 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 			)
 
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(exchanges).To(ConsistOf(
-				exchange{
-					requestA,
-					SuccessResponse{
-						Version:   "2.0",
-						RequestID: json.RawMessage(`123`),
-						Result:    json.RawMessage(`"result of <method-a>"`),
-					},
+			Expect(responses).To(ConsistOf(
+				SuccessResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`123`),
+					Result:    json.RawMessage(`"result of <method-a>"`),
 				},
-				exchange{
-					requestB,
-					SuccessResponse{
-						Version:   "2.0",
-						RequestID: json.RawMessage(`456`),
-						Result:    json.RawMessage(`"result of <method-b>"`),
-					},
+				SuccessResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`456`),
+					Result:    json.RawMessage(`"result of <method-b>"`),
 				},
 			))
 
@@ -321,10 +300,7 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 
 		When("the response writer returns an error", func() {
 			BeforeEach(func() {
-				writer.WriteBatchedFunc = func(
-					Request,
-					Response,
-				) error {
+				writer.WriteBatchedFunc = func(Response) error {
 					return errors.New("<write error>")
 				}
 			})
@@ -417,10 +393,7 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 
 			It("does not write any further responses", func() {
 				called := false
-				writer.WriteBatchedFunc = func(
-					Request,
-					Response,
-				) error {
+				writer.WriteBatchedFunc = func(Response) error {
 					Expect(called).To(BeFalse())
 					called = true
 					return errors.New("<error>")

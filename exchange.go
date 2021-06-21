@@ -43,11 +43,11 @@ type ResponseWriter interface {
 
 	// WriteUnbatched writes a response to an individual request that was not
 	// part of a batch.
-	WriteUnbatched(Request, Response) error
+	WriteUnbatched(Response) error
 
 	// WriteBatched writes a response to an individual request that was part of
 	// a batch.
-	WriteBatched(Request, Response) error
+	WriteBatched(Response) error
 
 	// Close is called to signal that there are no more responses to be sent.
 	Close() error
@@ -190,7 +190,7 @@ func exchangeOne(
 	ctx context.Context,
 	e Exchanger,
 	req Request,
-	w func(Request, Response) error,
+	w func(Response) error,
 	l ExchangeLogger,
 ) error {
 	if req.IsNotification() {
@@ -202,7 +202,7 @@ func exchangeOne(
 	res := e.Call(ctx, req)
 	l.LogCall(req, res)
 
-	if err := w(req, res); err != nil {
+	if err := w(res); err != nil {
 		l.LogWriterError(err)
 		return err
 	}
@@ -281,14 +281,14 @@ func exchangeMany(
 				ctx,
 				e,
 				req,
-				func(req Request, res Response) error {
+				func(res Response) error {
 					m.Lock()
 					defer m.Unlock()
 
 					// Only write the response if there has not already been
 					// an error writing responses.
 					if ok {
-						err := w.WriteBatched(req, res)
+						err := w.WriteBatched(res)
 						ok = err == nil
 						return err
 					}

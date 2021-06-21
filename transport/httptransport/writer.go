@@ -52,7 +52,7 @@ func (w *ResponseWriter) WriteError(res harpy.ErrorResponse) error {
 //
 // Application-defined JSON-RPC errors always result in a HTTP 200 (OK), as they
 // considered part of normal operation of the transport.
-func (w *ResponseWriter) WriteUnbatched(req harpy.Request, res harpy.Response) error {
+func (w *ResponseWriter) WriteUnbatched(res harpy.Response) error {
 	status := http.StatusOK
 	if e, ok := res.(harpy.ErrorResponse); ok {
 		status = httpStatusFromError(e.Error)
@@ -71,7 +71,7 @@ func (w *ResponseWriter) WriteUnbatched(req harpy.Request, res harpy.Response) e
 //
 // The HTTP status code is always 200 (OK), as even if res is an ErrorResponse,
 // other responses in the batch may indicate a success.
-func (w *ResponseWriter) WriteBatched(req harpy.Request, res harpy.Response) error {
+func (w *ResponseWriter) WriteBatched(res harpy.Response) error {
 	separator := comma
 
 	if !w.arrayOpen {

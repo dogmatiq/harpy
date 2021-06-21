@@ -57,10 +57,10 @@ var _ = Describe("func Exchange() (single request)", func() {
 			WriteErrorFunc: func(ErrorResponse) error {
 				panic("unexpected call to WriteErrorFunc()")
 			},
-			WriteUnbatchedFunc: func(Request, Response) error {
+			WriteUnbatchedFunc: func(Response) error {
 				panic("unexpected call to WriteUnbatchedFunc()")
 			},
-			WriteBatchedFunc: func(Request, Response) error {
+			WriteBatchedFunc: func(Response) error {
 				panic("unexpected call to WriteBatchedFunc()")
 			},
 			CloseFunc: func() error {
@@ -95,11 +95,7 @@ var _ = Describe("func Exchange() (single request)", func() {
 				return next(ctx, req)
 			}
 
-			writer.WriteUnbatchedFunc = func(
-				req Request,
-				res Response,
-			) error {
-				Expect(req).To(Equal(request))
+			writer.WriteUnbatchedFunc = func(res Response) error {
 				Expect(res).To(Equal(SuccessResponse{
 					Version:   "2.0",
 					RequestID: json.RawMessage(`123`),
@@ -126,10 +122,7 @@ var _ = Describe("func Exchange() (single request)", func() {
 		})
 
 		It("logs and returns errors the occur when writing the response", func() {
-			writer.WriteUnbatchedFunc = func(
-				req Request,
-				res Response,
-			) error {
+			writer.WriteUnbatchedFunc = func(Response) error {
 				return errors.New("<write error>")
 			}
 

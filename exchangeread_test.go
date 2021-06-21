@@ -30,10 +30,10 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 			WriteErrorFunc: func(ErrorResponse) error {
 				panic("unexpected call to WriteErrorFunc()")
 			},
-			WriteUnbatchedFunc: func(Request, Response) error {
+			WriteUnbatchedFunc: func(Response) error {
 				panic("unexpected call to WriteUnbatchedFunc()")
 			},
-			WriteBatchedFunc: func(Request, Response) error {
+			WriteBatchedFunc: func(Response) error {
 				panic("unexpected call to WriteBatchedFunc()")
 			},
 			CloseFunc: func() error {
