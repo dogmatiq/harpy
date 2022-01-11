@@ -1,7 +1,7 @@
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dogmatiq/dodeca v1.3.0 h1:iej0oGuogRzctXfXaWQGujorqf9Jq/Zuc83ftMu2dIk=
-github.com/dogmatiq/dodeca v1.3.0/go.mod h1:3yoxWYqSso+ijE4DxzW6QJRkQa69dnIAXVM37JUqeRk=
+github.com/dogmatiq/dodeca v1.3.1 h1:Kd7hr4Pr1Ej442jLI6vvt8A0AP2JynkkHY4yhT4cNCY=
+github.com/dogmatiq/dodeca v1.3.1/go.mod h1:3yoxWYqSso+ijE4DxzW6QJRkQa69dnIAXVM37JUqeRk=
 github.com/dogmatiq/iago v0.4.0 h1:57nZqVT34IZxtCZEW/RFif7DNUEjMXgevfr/Mmd0N8I=
 github.com/dogmatiq/iago v0.4.0/go.mod h1:fishMWBtzYcjgis6d873VTv9kFm/wHYLOzOyO9ECBDc=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=

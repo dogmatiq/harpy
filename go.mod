@@ -3,7 +3,7 @@ module github.com/dogmatiq/harpy
 go 1.16
 
 require (
-	github.com/dogmatiq/dodeca v1.3.0
+	github.com/dogmatiq/dodeca v1.3.1
 	github.com/dogmatiq/iago v0.4.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
