@@ -32,7 +32,7 @@ var _ = Describe("type Request", func() {
 		})
 	})
 
-	Describe("func Validate()", func() {
+	Describe("func ValidateServerSide()", func() {
 		DescribeTable(
 			"it returns nil when the request is valid (request IDs)",
 			func(id json.RawMessage) {
@@ -41,7 +41,7 @@ var _ = Describe("type Request", func() {
 					ID:      id,
 				}
 
-				err := req.Validate()
+				err := req.ValidateServerSide()
 				Expect(err).ShouldNot(HaveOccurred())
 			},
 			Entry("string ID", json.RawMessage(`"<id>"`)),
@@ -60,7 +60,7 @@ var _ = Describe("type Request", func() {
 					Parameters: params,
 				}
 
-				err := req.Validate()
+				err := req.ValidateServerSide()
 				Expect(err).ShouldNot(HaveOccurred())
 			},
 			Entry("array params", json.RawMessage(`[]`)),
@@ -76,7 +76,7 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`1`),
 			}
 
-			err := req.Validate()
+			err := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -91,7 +91,7 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{}`),
 			}
 
-			err := req.Validate()
+			err := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -106,7 +106,7 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{`),
 			}
 
-			err := req.Validate()
+			err := req.ValidateServerSide()
 			Expect(err).Should(HaveOccurred())
 			Expect(err.Code()).To(Equal(ParseErrorCode))
 			Expect(err.Unwrap()).To(MatchError("unexpected end of JSON input"))
@@ -118,7 +118,7 @@ var _ = Describe("type Request", func() {
 				Parameters: json.RawMessage(`123`),
 			}
 
-			err := req.Validate()
+			err := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidParametersCode,
@@ -135,7 +135,7 @@ var _ = Describe("type Request", func() {
 				Parameters: json.RawMessage(`456`),
 			}
 
-			err := req.Validate()
+			err := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidParametersCode,
@@ -386,7 +386,7 @@ var _ = Describe("type RequestSet", func() {
 		})
 	})
 
-	Describe("func Validate()", func() {
+	Describe("func ValidateServerSide()", func() {
 		It("returns nil if all requests are valid", func() {
 			rs := RequestSet{
 				Requests: []Request{
@@ -396,7 +396,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.Validate()
+			err := rs.ValidateServerSide()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
@@ -409,7 +409,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.Validate()
+			err := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -423,7 +423,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.Validate()
+			err := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -437,7 +437,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err := rs.Validate()
+			err := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -455,7 +455,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err := rs.Validate()
+			err := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,

@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### Changed
 
 - **[BC]** Renamed `ParseRequestSet` to `UnmarshalRequestSet` to better match standard library
+- **[BC]** Renamed `RequestSet.Validate()` to `ValidateServerSide`
+- **[BC]** Renamed `Request.Validate()` to `ValidateServerSide`
 
 ### Removed
 

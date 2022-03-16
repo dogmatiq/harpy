@@ -99,7 +99,11 @@ type ErrorResponse struct {
 
 // NewErrorResponse returns a new ErrorResponse for the given error.
 func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
-	if err, ok := err.(*Error); ok {
+	if err, ok := err.(*Error); ok && err.isServerSide {
+		// Only include error information if this is a "server-side" error,
+		// meaning that it was created on the server specifically to send
+		// back to the client, as opposed to being returned by some JSON-RPC
+		// client that happened to be used by the server.
 		return newNativeErrorResponse(requestID, err)
 	}
 
@@ -128,6 +132,10 @@ func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
 // newNativeErrorResponse returns a new ErrorResponse based on a native JSON-RPC
 // Error.
 func newNativeErrorResponse(requestID json.RawMessage, nerr *Error) ErrorResponse {
+	if !nerr.isServerSide {
+		panic("cannot build native error response from client-side error")
+	}
+
 	res := ErrorResponse{
 		Version:   JSONRPCVersion,
 		RequestID: requestID,

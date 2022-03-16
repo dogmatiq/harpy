@@ -66,10 +66,12 @@ func (r Request) IsNotification() bool {
 	return r.ID == nil
 }
 
-// Validate checks that the request conforms to the JSON-RPC specification.
+// ValidateServerSide checks that the request conforms to the JSON-RPC
+// specification.
 //
-// It returns nil if the response is valid.
-func (r Request) Validate() *Error {
+// If the request is invalid it returns a JSON-RPC error intended to be sent to
+// the caller in an ErrorResponse.
+func (r Request) ValidateServerSide() *Error {
 	if r.Version != JSONRPCVersion {
 		return NewErrorWithReservedCode(
 			InvalidRequestCode,
@@ -207,11 +209,12 @@ func UnmarshalRequestSet(r io.Reader) (RequestSet, error) {
 	}
 }
 
-// Validate checks that the request set is valid and that the requests within
-// conform to the JSON-RPC specification.
+// ValidateServerSide checks that the request set is valid and that the requests
+// within conform to the JSON-RPC specification.
 //
-// It returns nil if the response is valid.
-func (rs RequestSet) Validate() *Error {
+// If the request set is invalid it returns a JSON-RPC error intended to be sent
+// to the caller in an ErrorResponse.
+func (rs RequestSet) ValidateServerSide() *Error {
 	if rs.IsBatch {
 		if len(rs.Requests) == 0 {
 			return NewErrorWithReservedCode(
@@ -227,7 +230,7 @@ func (rs RequestSet) Validate() *Error {
 	}
 
 	for _, req := range rs.Requests {
-		if err := req.Validate(); err != nil {
+		if err := req.ValidateServerSide(); err != nil {
 			return err
 		}
 	}

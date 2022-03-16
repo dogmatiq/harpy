@@ -8,10 +8,23 @@ import (
 
 // Error is a Go error that describes a JSON-RPC error.
 type Error struct {
-	code    ErrorCode
-	message string
-	cause   error
+	// code is the JSON-RPC error code.
+	code ErrorCode
 
+	// message is the user-defined error message, if any.
+	message string
+
+	// isServerSide indicates whether or not this error was created within a
+	// Harpy JSON-RPC server and is intended to be delivered to the caller.
+	//
+	// If it is false, this error was returned by a JSON-RPC client.
+	isServerSide bool
+
+	// cause is the Go error that caused this JSON-RPC error, if any.
+	cause error
+
+	// dataValue and dataJSON are the Go value and JSON representations of the
+	// user-defined error value that is attached to the error, if any.
 	m         sync.Mutex
 	dataValue interface{}
 	dataJSON  json.RawMessage
@@ -22,7 +35,8 @@ type Error struct {
 // The options are applied in order.
 func newError(code ErrorCode, options []ErrorOption) *Error {
 	e := &Error{
-		code: code,
+		code:         code,
+		isServerSide: true,
 	}
 
 	for _, opt := range options {

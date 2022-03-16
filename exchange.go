@@ -166,7 +166,7 @@ func readRequestSet(
 		return RequestSet{}, false, readErr
 	}
 
-	if err := rs.Validate(); err != nil {
+	if err := rs.ValidateServerSide(); err != nil {
 		// The request data is well-formed JSON but not a valid JSON-RPC request
 		// or batch.
 		res := newNativeErrorResponse(nil, err)
