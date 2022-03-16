@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"strings"
 
 	. "github.com/dogmatiq/harpy"
 	. "github.com/onsi/ginkgo"
@@ -202,6 +204,159 @@ var _ = Describe("type ErrorInfo", func() {
 			}
 
 			Expect(i.String()).To(Equal("[100] <message>"))
+		})
+	})
+})
+
+var _ = Describe("type ResponseSet", func() {
+	Describe("func UnmarshalResponseSet()", func() {
+		It("parses a single success response", func() {
+			r := strings.NewReader(`{
+				"jsonrpc": "2.0",
+				"id": 123,
+				"result": [1, 2, 3]
+			}`)
+
+			rs, err := UnmarshalResponseSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeFalse())
+			Expect(rs.Responses).To(ConsistOf(
+				SuccessResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`123`),
+					Result:    json.RawMessage(`[1, 2, 3]`),
+				},
+			))
+		})
+
+		It("parses a single error response", func() {
+			r := strings.NewReader(`{
+				"jsonrpc": "2.0",
+				"id": 123,
+				"error": {
+					"code": 456,
+					"message": "<error message>",
+					"data": [1, 2, 3]
+				}
+			}`)
+
+			rs, err := UnmarshalResponseSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeFalse())
+			Expect(rs.Responses).To(ConsistOf(
+				ErrorResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`123`),
+					Error: ErrorInfo{
+						Code:    456,
+						Message: "<error message>",
+						Data:    json.RawMessage(`[1, 2, 3]`),
+					},
+				},
+			))
+		})
+
+		It("parses a batch response with a single response", func() {
+			r := strings.NewReader(`[{
+				"jsonrpc": "2.0",
+				"id": 123,
+				"result": [1, 2, 3]
+			}]`)
+
+			rs, err := UnmarshalResponseSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeTrue())
+			Expect(rs.Responses).To(ConsistOf(
+				SuccessResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`123`),
+					Result:    json.RawMessage(`[1, 2, 3]`),
+				},
+			))
+		})
+
+		It("parses a batch response with multiple responses", func() {
+			r := strings.NewReader(`[{
+				"jsonrpc": "2.0",
+				"id": 123,
+				"result": [1, 2, 3]
+			},{
+				"jsonrpc": "2.0",
+				"id": 456,
+				"error": {
+					"code": 789,
+					"message": "<error message>",
+					"data": [4, 5, 6]
+				}
+			}]`)
+
+			rs, err := UnmarshalResponseSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeTrue())
+			Expect(rs.Responses).To(ConsistOf(
+				SuccessResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`123`),
+					Result:    json.RawMessage(`[1, 2, 3]`),
+				},
+				ErrorResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`456`),
+					Error: ErrorInfo{
+						Code:    789,
+						Message: "<error message>",
+						Data:    json.RawMessage(`[4, 5, 6]`),
+					},
+				},
+			))
+		})
+
+		It("ignores leading whitespace", func() {
+			r := strings.NewReader(`    []`)
+
+			rs, err := UnmarshalResponseSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.IsBatch).To(BeTrue())
+		})
+
+		It("includes the ID field if it set to NULL", func() {
+			r := strings.NewReader(`{"id": null}`)
+
+			rs, err := UnmarshalResponseSet(r)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(rs.Responses).To(ConsistOf(
+				SuccessResponse{
+					RequestID: json.RawMessage(`null`),
+				},
+			))
+		})
+
+		It("returns an error if the response can not be read", func() {
+			r := strings.NewReader(``)
+
+			_, err := UnmarshalResponseSet(r)
+			Expect(err).To(Equal(io.EOF))
+		})
+
+		It("returns an error if the response has invalid syntax", func() {
+			r := strings.NewReader(`}`)
+
+			_, err := UnmarshalResponseSet(r)
+			Expect(err).To(MatchError("unable to parse response: invalid character '}' looking for beginning of value"))
+		})
+
+		It("returns an error if a single response is malformed", func() {
+			r := strings.NewReader(`""`) // not an array or object
+
+			_, err := UnmarshalResponseSet(r)
+			Expect(err).To(MatchError("unable to parse response: json: cannot unmarshal string into Go value of type harpy.successOrErrorResponse"))
+		})
+
+		It("returns an error if a response within a batch is malformed", func() {
+			r := strings.NewReader(`[""]`) // not an array or object
+
+			_, err := UnmarshalResponseSet(r)
+			Expect(err).To(MatchError("unable to parse response: json: cannot unmarshal string into Go value of type harpy.successOrErrorResponse"))
 		})
 	})
 })

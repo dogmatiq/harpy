@@ -1,10 +1,13 @@
 package harpy
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"unicode"
 )
 
 // Response is an interface for a JSON-RPC response object.
@@ -149,4 +152,126 @@ func (e ErrorInfo) String() string {
 func isInternalError(err error) bool {
 	return !errors.Is(err, context.Canceled) &&
 		!errors.Is(err, context.DeadlineExceeded)
+}
+
+// ResponseSet encapsulates one or more JSON-RPC responses that were parsed from
+// a single JSON message.
+type ResponseSet struct {
+	// Responses contains the responses parsed from the message.
+	Responses []Response
+
+	// IsBatch is true if the responses are part of a batch.
+	//
+	// This is used to disambiguate between a single response and a batch that
+	// contains only one response.
+	IsBatch bool
+}
+
+// UnmarshalResponseSet parses a set of JSON-RPC response set.
+func UnmarshalResponseSet(r io.Reader) (ResponseSet, error) {
+	br := bufio.NewReader(r)
+
+	for {
+		ch, _, err := br.ReadRune()
+		if err != nil {
+			return ResponseSet{}, err
+		}
+
+		if unicode.IsSpace(ch) {
+			continue
+		}
+
+		if err := br.UnreadRune(); err != nil {
+			panic(err) // only occurs if a rune hasn't already been read
+		}
+
+		if ch == '[' {
+			return unmarshalBatchResponse(br)
+		}
+
+		return unmarshalSingleResponse(br)
+	}
+}
+
+// successOrErrorResponse encapsulates a JSON-RPC response.
+type successOrErrorResponse struct {
+	// Version is the JSON-RPC version.
+	//
+	// As per the JSON-RPC specification it MUST be exactly "2.0".
+	Version string `json:"jsonrpc"`
+
+	// RequestID is the ID of the request that produced this response.
+	RequestID json.RawMessage `json:"id"`
+
+	// Result is the user-defined result value produce in response to the
+	// request.
+	Result json.RawMessage `json:"result"`
+
+	// Error describes the error produced in response to the request.
+	Error *ErrorInfo `json:"error"`
+}
+
+// unmarshalSingleRequest unmarshals a non-batch JSON-RPC request set.
+func unmarshalSingleResponse(r *bufio.Reader) (ResponseSet, error) {
+	var res successOrErrorResponse
+
+	if err := unmarshalJSONForResponse(r, &res); err != nil {
+		return ResponseSet{}, err
+	}
+
+	return ResponseSet{
+		Responses: []Response{
+			normalizeResponse(res),
+		},
+		IsBatch: false,
+	}, nil
+}
+
+// unmarshalBatchResponse unmarshals a batched JSON-RPC request set.
+func unmarshalBatchResponse(r *bufio.Reader) (ResponseSet, error) {
+	var batch []successOrErrorResponse
+
+	if err := unmarshalJSONForResponse(r, &batch); err != nil {
+		return ResponseSet{}, err
+	}
+
+	set := ResponseSet{
+		Responses: make([]Response, len(batch)),
+		IsBatch:   true,
+	}
+
+	for i, res := range batch {
+		set.Responses[i] = normalizeResponse(res)
+	}
+
+	return set, nil
+}
+
+// unmarshalJSONForResponse unmarshals JSON content from r into v.
+func unmarshalJSONForResponse(r io.Reader, v interface{}) error {
+	err := unmarshalJSON(r, v)
+
+	if isJSONError(err) {
+		return fmt.Errorf("unable to parse response: %w", err)
+	}
+
+	return err
+}
+
+// normalizeResponse returns a response of a specific type based on the content
+// of res.
+func normalizeResponse(res successOrErrorResponse) Response {
+	if res.Error != nil {
+		return ErrorResponse{
+			Version:   res.Version,
+			RequestID: res.RequestID,
+			Error:     *res.Error,
+		}
+	}
+
+	return SuccessResponse{
+		Version:   res.Version,
+		RequestID: res.RequestID,
+		Result:    res.Result,
+	}
 }

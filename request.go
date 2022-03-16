@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"unicode"
 )
 
@@ -262,10 +261,7 @@ func unmarshalBatchRequest(r *bufio.Reader) (RequestSet, error) {
 // unmarshalJSONForRequest unmarshals JSON content from r into v. If the JSON
 // cannot be parsed it returns a JSON-RPC error with the "parse error" code.
 func unmarshalJSONForRequest(r io.Reader, v interface{}) error {
-	dec := json.NewDecoder(r)
-	dec.DisallowUnknownFields()
-
-	err := dec.Decode(&v)
+	err := unmarshalJSON(r, v)
 
 	if isJSONError(err) {
 		return NewErrorWithReservedCode(
@@ -275,25 +271,6 @@ func unmarshalJSONForRequest(r io.Reader, v interface{}) error {
 	}
 
 	return err
-}
-
-// isJSONError returns true if err indicates a JSON parse failure of some kind.
-func isJSONError(err error) bool {
-	switch err.(type) {
-	case nil:
-		return false
-	case *json.SyntaxError:
-		return true
-	case *json.UnmarshalTypeError:
-		return true
-	default:
-		// Unfortunately, some JSON errors do not have distinct types. For
-		// example, when parsing using a decoder with DisallowUnknownFields()
-		// enabled an unexpected field is reported using the equivalent of:
-		//
-		//   errors.New(`json: unknown field "<field name>"`)
-		return strings.HasPrefix(err.Error(), "json:")
-	}
 }
 
 // Validatable is an interface for parameter values that provide their own
