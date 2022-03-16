@@ -130,7 +130,7 @@ func readRequestSet(
 			return RequestSet{}, false, readErr
 		}
 
-		if _, ok := readErr.(Error); ok {
+		if _, ok := readErr.(*Error); ok {
 			// There was no problem reading data for the request set, but it could
 			// not be parsed as JSON.
 			res := NewErrorResponse(nil, readErr)
@@ -166,8 +166,7 @@ func readRequestSet(
 		return RequestSet{}, false, readErr
 	}
 
-	err, ok := rs.Validate()
-	if !ok {
+	if err := rs.Validate(); err != nil {
 		// The request data is well-formed JSON but not a valid JSON-RPC request
 		// or batch.
 		res := newNativeErrorResponse(nil, err)

@@ -99,7 +99,7 @@ type ErrorResponse struct {
 
 // NewErrorResponse returns a new ErrorResponse for the given error.
 func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
-	if err, ok := err.(Error); ok {
+	if err, ok := err.(*Error); ok {
 		return newNativeErrorResponse(requestID, err)
 	}
 
@@ -125,7 +125,9 @@ func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
 	}
 }
 
-func newNativeErrorResponse(requestID json.RawMessage, nerr Error) ErrorResponse {
+// newNativeErrorResponse returns a new ErrorResponse based on a native JSON-RPC
+// Error.
+func newNativeErrorResponse(requestID json.RawMessage, nerr *Error) ErrorResponse {
 	res := ErrorResponse{
 		Version:   JSONRPCVersion,
 		RequestID: requestID,

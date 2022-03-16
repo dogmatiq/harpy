@@ -34,15 +34,15 @@ var _ = Describe("type Request", func() {
 
 	Describe("func Validate()", func() {
 		DescribeTable(
-			"it returns true when the request is valid (request IDs)",
+			"it returns nil when the request is valid (request IDs)",
 			func(id json.RawMessage) {
 				req := Request{
 					Version: "2.0",
 					ID:      id,
 				}
 
-				_, ok := req.Validate()
-				Expect(ok).To(BeTrue())
+				err := req.Validate()
+				Expect(err).ShouldNot(HaveOccurred())
 			},
 			Entry("string ID", json.RawMessage(`"<id>"`)),
 			Entry("integer ID", json.RawMessage(`1`)),
@@ -52,15 +52,15 @@ var _ = Describe("type Request", func() {
 		)
 
 		DescribeTable(
-			"it returns true when the request is valid (parameters)",
+			"it returns nil when the request is valid (parameters)",
 			func(params json.RawMessage) {
 				req := Request{
 					Version:    "2.0",
 					Parameters: params,
 				}
 
-				_, ok := req.Validate()
-				Expect(ok).To(BeTrue())
+				err := req.Validate()
+				Expect(err).ShouldNot(HaveOccurred())
 			},
 			Entry("array params", json.RawMessage(`[]`)),
 			Entry("object params", json.RawMessage(`{}`)),
@@ -74,8 +74,7 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`1`),
 			}
 
-			err, ok := req.Validate()
-			Expect(ok).To(BeFalse())
+			err := req.Validate()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -90,8 +89,7 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{}`),
 			}
 
-			err, ok := req.Validate()
-			Expect(ok).To(BeFalse())
+			err := req.Validate()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -106,8 +104,8 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{`),
 			}
 
-			err, ok := req.Validate()
-			Expect(ok).To(BeFalse())
+			err := req.Validate()
+			Expect(err).Should(HaveOccurred())
 			Expect(err.Code()).To(Equal(ParseErrorCode))
 			Expect(err.Unwrap()).To(MatchError("unexpected end of JSON input"))
 		})
@@ -118,8 +116,7 @@ var _ = Describe("type Request", func() {
 				Parameters: json.RawMessage(`123`),
 			}
 
-			err, ok := req.Validate()
-			Expect(ok).To(BeFalse())
+			err := req.Validate()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidParametersCode,
@@ -153,7 +150,7 @@ var _ = Describe("type Request", func() {
 			var params interface{}
 			err := req.UnmarshalParameters(&params)
 
-			var jsonErr Error
+			var jsonErr *Error
 			ok := errors.As(err, &jsonErr)
 			Expect(ok).To(BeTrue())
 			Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
@@ -168,7 +165,7 @@ var _ = Describe("type Request", func() {
 			var params struct{}
 			err := req.UnmarshalParameters(&params)
 
-			var jsonErr Error
+			var jsonErr *Error
 			ok := errors.As(err, &jsonErr)
 			Expect(ok).To(BeTrue())
 			Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
@@ -199,7 +196,7 @@ var _ = Describe("type Request", func() {
 				}
 				err := req.UnmarshalParameters(&params)
 
-				var jsonErr Error
+				var jsonErr *Error
 				ok := errors.As(err, &jsonErr)
 				Expect(ok).To(BeTrue())
 				Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
@@ -335,10 +332,10 @@ var _ = Describe("type RequestSet", func() {
 
 			_, err := UnmarshalRequestSet(r)
 
-			var e Error
+			var e *Error
 			Expect(err).To(BeAssignableToTypeOf(e))
 
-			e = err.(Error)
+			e = err.(*Error)
 			Expect(e.Code()).To(Equal(ParseErrorCode))
 			Expect(e.Unwrap()).To(MatchError("unable to parse request: invalid character '}' looking for beginning of value"))
 		})
@@ -348,10 +345,10 @@ var _ = Describe("type RequestSet", func() {
 
 			_, err := UnmarshalRequestSet(r)
 
-			var e Error
+			var e *Error
 			Expect(err).To(BeAssignableToTypeOf(e))
 
-			e = err.(Error)
+			e = err.(*Error)
 			Expect(e.Code()).To(Equal(ParseErrorCode))
 			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
 		})
@@ -361,17 +358,17 @@ var _ = Describe("type RequestSet", func() {
 
 			_, err := UnmarshalRequestSet(r)
 
-			var e Error
+			var e *Error
 			Expect(err).To(BeAssignableToTypeOf(e))
 
-			e = err.(Error)
+			e = err.(*Error)
 			Expect(e.Code()).To(Equal(ParseErrorCode))
 			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
 		})
 	})
 
 	Describe("func Validate()", func() {
-		It("returns true if all requests are valid", func() {
+		It("returns nil if all requests are valid", func() {
 			rs := RequestSet{
 				Requests: []Request{
 					{Version: "2.0"},
@@ -380,8 +377,8 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			_, ok := rs.Validate()
-			Expect(ok).To(BeTrue())
+			err := rs.Validate()
+			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		It("returns an error if any of the requests is invalid", func() {
@@ -393,8 +390,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err, ok := rs.Validate()
-			Expect(ok).To(BeFalse())
+			err := rs.Validate()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -408,8 +404,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err, ok := rs.Validate()
-			Expect(ok).To(BeFalse())
+			err := rs.Validate()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -423,8 +418,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err, ok := rs.Validate()
-			Expect(ok).To(BeFalse())
+			err := rs.Validate()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
@@ -442,8 +436,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err, ok := rs.Validate()
-			Expect(ok).To(BeFalse())
+			err := rs.Validate()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,

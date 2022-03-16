@@ -13,13 +13,13 @@ type Error struct {
 // newError returns a new Error with the given code.
 //
 // The options are applied in order.
-func newError(code ErrorCode, options []ErrorOption) Error {
-	e := Error{
+func newError(code ErrorCode, options []ErrorOption) *Error {
+	e := &Error{
 		code: code,
 	}
 
 	for _, opt := range options {
-		opt(&e)
+		opt(e)
 	}
 
 	return e
@@ -30,7 +30,7 @@ func newError(code ErrorCode, options []ErrorOption) Error {
 // The error codes from and including -32768 to -32000 are reserved for
 // pre-defined errors by the JSON-RPC specification. Use of a code within this
 // range causes a panic.
-func NewError(code ErrorCode, options ...ErrorOption) Error {
+func NewError(code ErrorCode, options ...ErrorOption) *Error {
 	if code.IsReserved() {
 		panic(fmt.Sprintf("the error code %d is reserved by the JSON-RPC specification (%s)", code, code))
 	}
@@ -50,7 +50,7 @@ func NewError(code ErrorCode, options ...ErrorOption) Error {
 // about doing so.
 //
 // Consider using MethodNotFound(), InvalidParameters() or NewError() instead.
-func NewErrorWithReservedCode(code ErrorCode, options ...ErrorOption) Error {
+func NewErrorWithReservedCode(code ErrorCode, options ...ErrorOption) *Error {
 	if !code.IsReserved() {
 		panic(fmt.Sprintf("the error code %d is not reserved by the JSON-RPC specification", code))
 	}
@@ -60,23 +60,23 @@ func NewErrorWithReservedCode(code ErrorCode, options ...ErrorOption) Error {
 
 // MethodNotFound returns an error that indicates the requested method does not
 // exist.
-func MethodNotFound(options ...ErrorOption) Error {
+func MethodNotFound(options ...ErrorOption) *Error {
 	return newError(MethodNotFoundCode, options)
 }
 
 // InvalidParameters returns an error that indicates the provided parameters are
 // malformed or invalid.
-func InvalidParameters(options ...ErrorOption) Error {
+func InvalidParameters(options ...ErrorOption) *Error {
 	return newError(InvalidParametersCode, options)
 }
 
 // Code returns the JSON-RPC error code.
-func (e Error) Code() ErrorCode {
+func (e *Error) Code() ErrorCode {
 	return e.code
 }
 
 // Message returns the error message.
-func (e Error) Message() string {
+func (e *Error) Message() string {
 	if e.message != "" {
 		return e.message
 	}
@@ -85,17 +85,17 @@ func (e Error) Message() string {
 }
 
 // Data returns the user-defined data associated with the error.
-func (e Error) Data() interface{} {
+func (e *Error) Data() interface{} {
 	return e.data
 }
 
 // Error returns the error message.
-func (e Error) Error() string {
+func (e *Error) Error() string {
 	return describeError(e.code, e.message)
 }
 
 // Unwrap returns the cause of e, if known.
-func (e Error) Unwrap() error {
+func (e *Error) Unwrap() error {
 	return e.cause
 }
 
