@@ -12,6 +12,9 @@ import (
 
 // Response is an interface for a JSON-RPC response object.
 type Response interface {
+	// Validate returns nil if the response is valid.
+	Validate() error
+
 	isResponse()
 }
 
@@ -51,6 +54,23 @@ func NewSuccessResponse(requestID json.RawMessage, result interface{}) Response 
 	}
 
 	return res
+}
+
+// Validate returns nil if the response is valid.
+func (r SuccessResponse) Validate() error {
+	if r.Version != JSONRPCVersion {
+		return errors.New(`response version must be "2.0"`)
+	}
+
+	if err := validateRequestIDInResponse(r.RequestID); err != nil {
+		return err
+	}
+
+	if len(r.Result) == 0 {
+		return errors.New("success response must contain a result")
+	}
+
+	return nil
 }
 
 func (SuccessResponse) isResponse() {}
@@ -133,7 +153,42 @@ func newNativeErrorResponse(requestID json.RawMessage, nerr Error) ErrorResponse
 	return res
 }
 
+// Validate returns nil if the response is valid.
+func (r ErrorResponse) Validate() error {
+	if r.Version != JSONRPCVersion {
+		return errors.New(`response version must be "2.0"`)
+	}
+
+	if err := validateRequestIDInResponse(r.RequestID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (ErrorResponse) isResponse() {}
+
+// validateRequestIDInResponse returns an error if the given request ID is not
+// one of the accepted types.
+func validateRequestIDInResponse(id json.RawMessage) error {
+	if len(id) > 0 {
+		var value interface{}
+		if err := json.Unmarshal(id, &value); err != nil {
+			return err
+		}
+
+		switch value.(type) {
+		case string:
+			return nil
+		case float64:
+			return nil
+		case nil:
+			return nil
+		}
+	}
+
+	return errors.New(`request ID must be a JSON string, number or null`)
+}
 
 // ErrorInfo describes a JSON-RPC error. It is included in an ErrorResponse, but
 // it is not a Go error.
@@ -209,6 +264,25 @@ type successOrErrorResponse struct {
 
 	// Error describes the error produced in response to the request.
 	Error *ErrorInfo `json:"error"`
+}
+
+// Validate returns nil if the response set is valid.
+func (rs ResponseSet) Validate() error {
+	if rs.IsBatch {
+		if len(rs.Responses) == 0 {
+			return errors.New("batches must contain at least one response")
+		}
+	} else if len(rs.Responses) != 1 {
+		return errors.New("non-batch response sets must contain exactly one response")
+	}
+
+	for _, res := range rs.Responses {
+		if err := res.Validate(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // unmarshalSingleRequest unmarshals a non-batch JSON-RPC request set.

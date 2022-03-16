@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - Added `JSONRPCVersion` constant
 - Added `ResponseSet` and `UnmarshalResponseSet()`
+- Added `Response.Validate()`
 
 ### Changed
 

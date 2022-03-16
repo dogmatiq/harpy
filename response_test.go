@@ -14,99 +14,37 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 )
 
-var _ = Describe("func NewSuccessResponse()", func() {
-	It("returns a SuccessResponse that contains the marshaled result", func() {
-		res := NewSuccessResponse(
-			json.RawMessage(`123`),
-			456,
-		)
-
-		Expect(res).To(Equal(SuccessResponse{
-			Version:   `2.0`,
-			RequestID: json.RawMessage(`123`),
-			Result:    json.RawMessage(`456`),
-		}))
-	})
-
-	It("returns a SuccessResponse with an empty result when the result is nil", func() {
-		res := NewSuccessResponse(
-			json.RawMessage(`123`),
-			nil,
-		)
-
-		Expect(res).To(Equal(SuccessResponse{
-			Version:   `2.0`,
-			RequestID: json.RawMessage(`123`),
-		}))
-	})
-
-	It("returns an ErrorResponse if the result can not be marshaled", func() {
-		res := NewSuccessResponse(
-			json.RawMessage(`123`),
-			10i+1, // JSON can not represent complex numbers
-		)
-
-		Expect(res).To(MatchAllFields(
-			Fields{
-				"Version":   Equal(`2.0`),
-				"RequestID": Equal(json.RawMessage(`123`)),
-				"Error": Equal(ErrorInfo{
-					Code:    InternalErrorCode,
-					Message: "internal server error",
-				}),
-				"ServerError": MatchError("could not marshal success result value: json: unsupported type: complex128"),
-			},
-		))
-	})
-})
-
-var _ = Describe("func NewErrorResponse()", func() {
-	When("the error is a native JSON-RPC error", func() {
-		It("returns an ErrorResponse", func() {
-			res := NewErrorResponse(
+var _ = Describe("type SuccessResponse", func() {
+	Describe("func NewSuccessResponse()", func() {
+		It("returns a SuccessResponse that contains the marshaled result", func() {
+			res := NewSuccessResponse(
 				json.RawMessage(`123`),
-				NewError(789, WithMessage("<error>")),
+				456,
 			)
 
-			Expect(res).To(Equal(ErrorResponse{
+			Expect(res).To(Equal(SuccessResponse{
 				Version:   `2.0`,
 				RequestID: json.RawMessage(`123`),
-				Error: ErrorInfo{
-					Code:    789,
-					Message: "<error>",
-				},
+				Result:    json.RawMessage(`456`),
 			}))
 		})
 
-		It("returns an ErrorResponse that contains marshaled user-defined data", func() {
-			res := NewErrorResponse(
+		It("returns a SuccessResponse with an empty result when the result is nil", func() {
+			res := NewSuccessResponse(
 				json.RawMessage(`123`),
-				NewError(
-					789,
-					WithMessage("<error>"),
-					WithData([]int{100, 200, 300}),
-				),
+				nil,
 			)
 
-			Expect(res).To(Equal(ErrorResponse{
+			Expect(res).To(Equal(SuccessResponse{
 				Version:   `2.0`,
 				RequestID: json.RawMessage(`123`),
-				Error: ErrorInfo{
-					Code:    789,
-					Message: "<error>",
-					Data:    json.RawMessage(`[100,200,300]`),
-				},
 			}))
 		})
 
-		It("returns an ErrorResponse indicating an internal error when user-defined data can not be marshaled", func() {
-			res := NewErrorResponse(
+		It("returns an ErrorResponse if the result can not be marshaled", func() {
+			res := NewSuccessResponse(
 				json.RawMessage(`123`),
-				NewError(
-					789,
-					WithMessage("<error>"),
-					WithData(10i+1), // JSON can not represent complex numbers
-				),
+				10i+1, // JSON can not represent complex numbers
 			)
 
 			Expect(res).To(MatchAllFields(
@@ -117,16 +55,175 @@ var _ = Describe("func NewErrorResponse()", func() {
 						Code:    InternalErrorCode,
 						Message: "internal server error",
 					}),
-					"ServerError": MatchError("could not marshal user-defined error data in [789] <error>: json: unsupported type: complex128"),
+					"ServerError": MatchError("could not marshal success result value: json: unsupported type: complex128"),
 				},
 			))
 		})
 	})
 
-	When("the error is not a native JSON-RPC error, and it is not an internal error", func() {
+	Describe("func Validate()", func() {
+		It("returns an error if the JSON-RPC version is incorrect", func() {
+			res := SuccessResponse{
+				Version: "1.0",
+			}
+
+			err := res.Validate()
+			Expect(err).To(MatchError(`response version must be "2.0"`))
+		})
+
 		DescribeTable(
-			"it returns an ErrorResponse that includes the error message",
-			func(err error) {
+			"it returns nil when the response is valid (request IDs)",
+			func(id json.RawMessage) {
+				res := SuccessResponse{
+					Version:   "2.0",
+					RequestID: id,
+					Result:    json.RawMessage(`null`),
+				}
+
+				err := res.Validate()
+				Expect(err).ShouldNot(HaveOccurred())
+			},
+			Entry("string ID", json.RawMessage(`"<id>"`)),
+			Entry("integer ID", json.RawMessage(`1`)),
+			Entry("decimal ID", json.RawMessage(`1.2`)),
+			Entry("null ID", json.RawMessage(`null`)),
+		)
+
+		DescribeTable(
+			"it returns an error when the response is invalid (request IDs)",
+			func(id json.RawMessage) {
+				res := SuccessResponse{
+					Version:   "2.0",
+					RequestID: id,
+				}
+
+				err := res.Validate()
+				Expect(err).To(MatchError("request ID must be a JSON string, number or null"))
+			},
+			Entry("absent ID", nil),
+			Entry("empty ID", json.RawMessage(``)),
+			Entry("object ID", json.RawMessage(`{}`)),
+		)
+
+		It("returns an error if the request ID is not valid JSON", func() {
+			res := SuccessResponse{
+				Version:   "2.0",
+				RequestID: json.RawMessage(`{`),
+			}
+
+			err := res.Validate()
+			Expect(err).To(MatchError("unexpected end of JSON input"))
+		})
+
+		DescribeTable(
+			"it returns an error if the result is absent",
+			func(result json.RawMessage) {
+				res := SuccessResponse{
+					Version:   "2.0",
+					RequestID: json.RawMessage(`123`),
+					Result:    result,
+				}
+
+				err := res.Validate()
+				Expect(err).To(MatchError("success response must contain a result"))
+			},
+			Entry("absent result", nil),
+			Entry("empty result", json.RawMessage(``)),
+		)
+	})
+})
+
+var _ = Describe("type ErrorResponse", func() {
+	Describe("func NewErrorResponse()", func() {
+		When("the error is a native JSON-RPC error", func() {
+			It("returns an ErrorResponse", func() {
+				res := NewErrorResponse(
+					json.RawMessage(`123`),
+					NewError(789, WithMessage("<error>")),
+				)
+
+				Expect(res).To(Equal(ErrorResponse{
+					Version:   `2.0`,
+					RequestID: json.RawMessage(`123`),
+					Error: ErrorInfo{
+						Code:    789,
+						Message: "<error>",
+					},
+				}))
+			})
+
+			It("returns an ErrorResponse that contains marshaled user-defined data", func() {
+				res := NewErrorResponse(
+					json.RawMessage(`123`),
+					NewError(
+						789,
+						WithMessage("<error>"),
+						WithData([]int{100, 200, 300}),
+					),
+				)
+
+				Expect(res).To(Equal(ErrorResponse{
+					Version:   `2.0`,
+					RequestID: json.RawMessage(`123`),
+					Error: ErrorInfo{
+						Code:    789,
+						Message: "<error>",
+						Data:    json.RawMessage(`[100,200,300]`),
+					},
+				}))
+			})
+
+			It("returns an ErrorResponse indicating an internal error when user-defined data can not be marshaled", func() {
+				res := NewErrorResponse(
+					json.RawMessage(`123`),
+					NewError(
+						789,
+						WithMessage("<error>"),
+						WithData(10i+1), // JSON can not represent complex numbers
+					),
+				)
+
+				Expect(res).To(MatchAllFields(
+					Fields{
+						"Version":   Equal(`2.0`),
+						"RequestID": Equal(json.RawMessage(`123`)),
+						"Error": Equal(ErrorInfo{
+							Code:    InternalErrorCode,
+							Message: "internal server error",
+						}),
+						"ServerError": MatchError("could not marshal user-defined error data in [789] <error>: json: unsupported type: complex128"),
+					},
+				))
+			})
+		})
+
+		When("the error is not a native JSON-RPC error, and it is not an internal error", func() {
+			DescribeTable(
+				"it returns an ErrorResponse that includes the error message",
+				func(err error) {
+					res := NewErrorResponse(
+						json.RawMessage(`123`),
+						err,
+					)
+
+					Expect(res).To(Equal(ErrorResponse{
+						Version:   `2.0`,
+						RequestID: json.RawMessage(`123`),
+						Error: ErrorInfo{
+							Code:    InternalErrorCode,
+							Message: err.Error(),
+						},
+					}))
+				},
+				Entry("context deadline exceeded", context.DeadlineExceeded),
+				Entry("context canceled", context.Canceled),
+			)
+		})
+
+		When("the error is any other error that is not a native JSON-RPC error", func() {
+			It("returns an ErrorResponse that does NOT include the error message", func() {
+				err := errors.New("<error>")
+
 				res := NewErrorResponse(
 					json.RawMessage(`123`),
 					err,
@@ -137,33 +234,65 @@ var _ = Describe("func NewErrorResponse()", func() {
 					RequestID: json.RawMessage(`123`),
 					Error: ErrorInfo{
 						Code:    InternalErrorCode,
-						Message: err.Error(),
+						Message: "internal server error",
 					},
+					ServerError: err,
 				}))
-			},
-			Entry("context deadline exceeded", context.DeadlineExceeded),
-			Entry("context canceled", context.Canceled),
-		)
+			})
+		})
 	})
 
-	When("the error is any other error that is not a native JSON-RPC error", func() {
-		It("returns an ErrorResponse that does NOT include the error message", func() {
-			err := errors.New("<error>")
+	Describe("func Validate()", func() {
+		It("returns an error if the JSON-RPC version is incorrect", func() {
+			res := ErrorResponse{
+				Version: "1.0",
+			}
 
-			res := NewErrorResponse(
-				json.RawMessage(`123`),
-				err,
-			)
+			err := res.Validate()
+			Expect(err).To(MatchError(`response version must be "2.0"`))
+		})
 
-			Expect(res).To(Equal(ErrorResponse{
-				Version:   `2.0`,
-				RequestID: json.RawMessage(`123`),
-				Error: ErrorInfo{
-					Code:    InternalErrorCode,
-					Message: "internal server error",
-				},
-				ServerError: err,
-			}))
+		DescribeTable(
+			"it returns nil when the response is valid (request IDs)",
+			func(id json.RawMessage) {
+				res := ErrorResponse{
+					Version:   "2.0",
+					RequestID: id,
+				}
+
+				err := res.Validate()
+				Expect(err).ShouldNot(HaveOccurred())
+			},
+			Entry("string ID", json.RawMessage(`"<id>"`)),
+			Entry("integer ID", json.RawMessage(`1`)),
+			Entry("decimal ID", json.RawMessage(`1.2`)),
+			Entry("null ID", json.RawMessage(`null`)),
+		)
+
+		DescribeTable(
+			"it returns an error when the response is invalid (request IDs)",
+			func(id json.RawMessage) {
+				res := ErrorResponse{
+					Version:   "2.0",
+					RequestID: id,
+				}
+
+				err := res.Validate()
+				Expect(err).To(MatchError("request ID must be a JSON string, number or null"))
+			},
+			Entry("absent ID", nil),
+			Entry("empty ID", json.RawMessage(``)),
+			Entry("object ID", json.RawMessage(`{}`)),
+		)
+
+		It("returns an error if the request ID is not valid JSON", func() {
+			res := ErrorResponse{
+				Version:   "2.0",
+				RequestID: json.RawMessage(`{`),
+			}
+
+			err := res.Validate()
+			Expect(err).To(MatchError("unexpected end of JSON input"))
 		})
 	})
 })
@@ -357,6 +486,108 @@ var _ = Describe("type ResponseSet", func() {
 
 			_, err := UnmarshalResponseSet(r)
 			Expect(err).To(MatchError("unable to parse response: json: cannot unmarshal string into Go value of type harpy.successOrErrorResponse"))
+		})
+	})
+
+	Describe("func Validate()", func() {
+		It("returns nil if all responses are valid", func() {
+			rs := ResponseSet{
+				Responses: []Response{
+					SuccessResponse{
+						Version:   "2.0",
+						RequestID: json.RawMessage(`123`),
+						Result:    json.RawMessage(`null`),
+					},
+					ErrorResponse{
+						Version:   "2.0",
+						RequestID: json.RawMessage(`456`),
+						Error: ErrorInfo{
+							Code:    789,
+							Message: "<error message>",
+						},
+					},
+				},
+				IsBatch: true,
+			}
+
+			err := rs.Validate()
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("returns an error if any of the success responses is invalid", func() {
+			rs := ResponseSet{
+				Responses: []Response{
+					SuccessResponse{
+						Version:   "2.0",
+						RequestID: json.RawMessage(`123`),
+						Result:    json.RawMessage(`null`),
+					},
+					SuccessResponse{},
+				},
+				IsBatch: true,
+			}
+
+			err := rs.Validate()
+			Expect(err).To(MatchError(`response version must be "2.0"`))
+		})
+
+		It("returns an error if any of the error responses is invalid", func() {
+			rs := ResponseSet{
+				Responses: []Response{
+					ErrorResponse{
+						Version:   "2.0",
+						RequestID: json.RawMessage(`456`),
+						Error: ErrorInfo{
+							Code:    789,
+							Message: "<error message>",
+						},
+					},
+					ErrorResponse{},
+				},
+				IsBatch: true,
+			}
+
+			err := rs.Validate()
+			Expect(err).To(MatchError(`response version must be "2.0"`))
+		})
+
+		It("returns an error if a batch contains no responses", func() {
+			rs := ResponseSet{
+				IsBatch: true,
+			}
+
+			err := rs.Validate()
+			Expect(err).To(MatchError("batches must contain at least one response"))
+		})
+
+		It("returns an error if a non-batch contains no responses", func() {
+			rs := ResponseSet{
+				IsBatch: false,
+			}
+
+			err := rs.Validate()
+			Expect(err).To(MatchError("non-batch response sets must contain exactly one response"))
+		})
+
+		It("returns an error if a non-batch contains more than one response", func() {
+			rs := ResponseSet{
+				Responses: []Response{
+					SuccessResponse{
+						Version:   "2.0",
+						RequestID: json.RawMessage(`123`),
+						Result:    json.RawMessage(`null`),
+					},
+					SuccessResponse{
+						Version:   "2.0",
+						RequestID: json.RawMessage(`456`),
+						Result:    json.RawMessage(`null`),
+					},
+				},
+				IsBatch: false,
+			}
+
+			err := rs.Validate()
+			Expect(err).To(MatchError("non-batch response sets must contain exactly one response"))
 		})
 	})
 })
