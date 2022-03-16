@@ -32,7 +32,7 @@ type SuccessResponse struct {
 // If the result can not be marshaled an ErrorResponse is returned instead.
 func NewSuccessResponse(requestID json.RawMessage, result interface{}) Response {
 	res := SuccessResponse{
-		Version:   jsonRPCVersion,
+		Version:   JSONRPCVersion,
 		RequestID: requestID,
 	}
 
@@ -78,7 +78,7 @@ func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
 
 	if isInternalError(err) {
 		return ErrorResponse{
-			Version:   jsonRPCVersion,
+			Version:   JSONRPCVersion,
 			RequestID: requestID,
 			Error: ErrorInfo{
 				Code:    InternalErrorCode,
@@ -89,7 +89,7 @@ func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
 	}
 
 	return ErrorResponse{
-		Version:   jsonRPCVersion,
+		Version:   JSONRPCVersion,
 		RequestID: requestID,
 		Error: ErrorInfo{
 			Code:    InternalErrorCode,
@@ -100,7 +100,7 @@ func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
 
 func newNativeErrorResponse(requestID json.RawMessage, nerr Error) ErrorResponse {
 	res := ErrorResponse{
-		Version:   jsonRPCVersion,
+		Version:   JSONRPCVersion,
 		RequestID: requestID,
 		Error: ErrorInfo{
 			Code:    nerr.Code(),
