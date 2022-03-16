@@ -66,10 +66,10 @@ func (r Request) IsNotification() bool {
 	return r.ID == nil
 }
 
-// Validate returns true if the request is valid.
+// Validate checks that the request conforms to the JSON-RPC specification.
 //
-// If r is invalid it returns an Error describing the problem.
-func (r Request) Validate() (Error, bool) {
+// If r is is valid ok is true; otherwise, err describes the violation.
+func (r Request) Validate() (err Error, ok bool) {
 	if r.Version != JSONRPCVersion {
 		return NewErrorWithReservedCode(
 			InvalidRequestCode,
@@ -132,9 +132,11 @@ func (r Request) UnmarshalParameters(v interface{}) error {
 	return nil
 }
 
-// validateRequestID returns false if the given request ID is not one of the
-// accepted types.
-func validateRequestID(id json.RawMessage) (Error, bool) {
+// validateRequestID checks that id is a valid request ID according to the
+// JSON-RPC specification.
+//
+// If id is is valid ok is true; otherwise, err describes the violation.
+func validateRequestID(id json.RawMessage) (err Error, ok bool) {
 	var value interface{}
 	if err := json.Unmarshal(id, &value); err != nil {
 		return NewErrorWithReservedCode(
@@ -203,9 +205,10 @@ func UnmarshalRequestSet(r io.Reader) (RequestSet, error) {
 	}
 }
 
-// Validate returns true if the request set is valid.
+// Validate checks that the request set is valid and that the requests within
+// conform to the JSON-RPC specification.
 //
-// If rs is invalid it returns an Error describing the problem.
+// If rs is is valid ok is true; otherwise, err describes the violation.
 func (rs RequestSet) Validate() (Error, bool) {
 	if rs.IsBatch {
 		if len(rs.Requests) == 0 {

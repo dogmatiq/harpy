@@ -12,7 +12,9 @@ import (
 
 // Response is an interface for a JSON-RPC response object.
 type Response interface {
-	// Validate returns nil if the response is valid.
+	// Validate checks that the response conforms to the JSON-RPC specification.
+	//
+	// It returns nil if the response is valid.
 	Validate() error
 
 	isResponse()
@@ -56,7 +58,9 @@ func NewSuccessResponse(requestID json.RawMessage, result interface{}) Response 
 	return res
 }
 
-// Validate returns nil if the response is valid.
+// Validate checks that the response conforms to the JSON-RPC specification.
+//
+// It returns nil if the response is valid.
 func (r SuccessResponse) Validate() error {
 	if r.Version != JSONRPCVersion {
 		return errors.New(`response version must be "2.0"`)
@@ -153,7 +157,9 @@ func newNativeErrorResponse(requestID json.RawMessage, nerr Error) ErrorResponse
 	return res
 }
 
-// Validate returns nil if the response is valid.
+// Validate checks that the response conforms to the JSON-RPC specification.
+//
+// It returns nil if the response is valid.
 func (r ErrorResponse) Validate() error {
 	if r.Version != JSONRPCVersion {
 		return errors.New(`response version must be "2.0"`)
@@ -168,8 +174,10 @@ func (r ErrorResponse) Validate() error {
 
 func (ErrorResponse) isResponse() {}
 
-// validateRequestIDInResponse returns an error if the given request ID is not
-// one of the accepted types.
+// validateRequestIDInResponse checks that id is a valid request ID for use
+// within an RPC response, according to the JSON-RPC specification.
+//
+// Unlike validateRequestID() it does not allow the id to be absent altogether.
 func validateRequestIDInResponse(id json.RawMessage) error {
 	if len(id) > 0 {
 		var value interface{}
@@ -266,7 +274,10 @@ type successOrErrorResponse struct {
 	Error *ErrorInfo `json:"error"`
 }
 
-// Validate returns nil if the response set is valid.
+// Validate checks that the response set is valid and that the responses within
+// conform to the JSON-RPC specification.
+//
+// It returns nil if the response set is valid.
 func (rs ResponseSet) Validate() error {
 	if rs.IsBatch {
 		if len(rs.Responses) == 0 {
