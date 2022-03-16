@@ -17,10 +17,15 @@ The format is based on [Keep a Changelog], and this project adheres to
 - Added `JSONRPCVersion` constant
 - Added `ResponseSet` and `UnmarshalResponseSet()`
 - Added `Response.Validate()`
+- Added `Error.MarshalData()` and `UnmarshalData()`
 
 ### Changed
 
 - **[BC]** Renamed `ParseRequestSet` to `UnmarshalRequestSet` to better match standard library
+
+### Removed
+
+- **[BC]** Removed `Error.Data()`, use `UnmarshalData()` instead
 
 ## [0.1.0] - 2021-08-05
 

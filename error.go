@@ -1,13 +1,20 @@
 package harpy
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"sync"
+)
 
 // Error is a Go error that describes a JSON-RPC error.
 type Error struct {
 	code    ErrorCode
 	message string
-	data    interface{}
 	cause   error
+
+	m         sync.Mutex
+	dataValue interface{}
+	dataJSON  json.RawMessage
 }
 
 // newError returns a new Error with the given code.
@@ -84,9 +91,40 @@ func (e *Error) Message() string {
 	return e.code.String()
 }
 
-// Data returns the user-defined data associated with the error.
-func (e *Error) Data() interface{} {
-	return e.data
+// MarshalData returns the JSON representation user-defined data value
+// associated with the error.
+//
+// ok is false if there is no user-defined data associated with the error.
+func (e *Error) MarshalData() (_ json.RawMessage, ok bool, _ error) {
+	e.m.Lock()
+	defer e.m.Unlock()
+
+	if e.dataJSON == nil {
+		if e.dataValue == nil {
+			return nil, false, nil
+		}
+
+		d, err := json.Marshal(e.dataValue)
+		if err != nil {
+			return nil, false, err
+		}
+
+		e.dataJSON = d
+	}
+
+	return e.dataJSON, true, nil
+}
+
+// UnmarshalData unmarshals the user-defined data into v.
+//
+// ok is false if there is no user-defined data associated with the error.
+func (e *Error) UnmarshalData(v interface{}) (ok bool, _ error) {
+	data, ok, err := e.MarshalData()
+	if !ok || err != nil {
+		return false, err
+	}
+
+	return true, json.Unmarshal(data, v)
 }
 
 // Error returns the error message.
@@ -139,6 +177,6 @@ func WithMessage(format string, values ...interface{}) ErrorOption {
 // object in the JSON-RPC response.
 func WithData(data interface{}) ErrorOption {
 	return func(e *Error) {
-		e.data = data
+		e.dataValue = data
 	}
 }

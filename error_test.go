@@ -1,6 +1,7 @@
 package harpy_test
 
 import (
+	"encoding/json"
 	"errors"
 
 	. "github.com/dogmatiq/harpy"
@@ -72,15 +73,53 @@ var _ = Describe("type Error", func() {
 		})
 	})
 
-	Describe("func Data()", func() {
-		It("returns the user-defined data", func() {
+	Describe("func MarshalData()", func() {
+		It("returns the JSON representation of the user-defined data", func() {
 			e := NewError(100, WithData("<data>"))
-			Expect(e.Data()).To(Equal("<data>"))
+			data, ok, err := e.MarshalData()
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(data).To(Equal(json.RawMessage(`"\u003cdata\u003e"`)))
 		})
 
-		It("returns nil if there is no user-defined data", func() {
+		It("returns false if there is no user-defined data", func() {
 			e := NewError(100)
-			Expect(e.Data()).To(BeNil())
+			_, ok, err := e.MarshalData()
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeFalse())
+		})
+
+		It("returns an error if the user-defined data cannot be marshaled", func() {
+			e := NewError(100, WithData(make(chan struct{})))
+			_, _, err := e.MarshalData()
+			Expect(err).To(MatchError("json: unsupported type: chan struct {}"))
+		})
+	})
+
+	Describe("func UnmarshalData()", func() {
+		It("unmarshals the user-defined data", func() {
+			e := NewError(100, WithData("<data>"))
+
+			var v interface{}
+			ok, err := e.UnmarshalData(&v)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(v).To(Equal("<data>"))
+		})
+
+		It("returns false if there is no user-defined data", func() {
+			e := NewError(100)
+			ok, err := e.UnmarshalData(nil)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeFalse())
+		})
+
+		It("returns an error if the user-defined data cannot be unmarshaled", func() {
+			e := NewError(100, WithData("<data>"))
+
+			var v int
+			_, err := e.UnmarshalData(&v)
+			Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type int"))
 		})
 	})
 

@@ -138,22 +138,23 @@ func newNativeErrorResponse(requestID json.RawMessage, nerr *Error) ErrorRespons
 		ServerError: nerr.cause,
 	}
 
-	if data := nerr.Data(); data != nil {
-		var err error
-		res.Error.Data, err = json.Marshal(data)
-		if err != nil {
-			// If an error occurs marshaling the user-defined error data we
-			// return an internal server error.
-			//
-			// We *could* still return the error code and message from nerr, but
-			// we can not be sure that the client implementation will behave as
-			// intended if presented with that error code but no user-defined
-			// data.
-			return NewErrorResponse(
-				requestID,
-				fmt.Errorf("could not marshal user-defined error data in %s: %w", nerr, err),
-			)
-		}
+	data, ok, err := nerr.MarshalData()
+	if err != nil {
+		// If an error occurs marshaling the user-defined error data we
+		// return an internal server error.
+		//
+		// We *could* still return the error code and message from nerr, but
+		// we can not be sure that the client implementation will behave as
+		// intended if presented with that error code but no user-defined
+		// data.
+		return NewErrorResponse(
+			requestID,
+			fmt.Errorf("could not marshal user-defined error data in %s: %w", nerr, err),
+		)
+	}
+
+	if ok {
+		res.Error.Data = data
 	}
 
 	return res
