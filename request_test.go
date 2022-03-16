@@ -433,7 +433,7 @@ var _ = Describe("type RequestSet", func() {
 			))
 		})
 
-		It("returns an error if a non-batch contains more than one requests", func() {
+		It("returns an error if a non-batch contains more than one request", func() {
 			rs := RequestSet{
 				Requests: []Request{
 					{Version: "2.0"},
