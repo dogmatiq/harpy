@@ -48,7 +48,8 @@ var _ = Describe("type Request", func() {
 			Entry("integer ID", json.RawMessage(`1`)),
 			Entry("decimal ID", json.RawMessage(`1.2`)),
 			Entry("null ID", json.RawMessage(`null`)),
-			Entry("absent ID", nil),
+			Entry("absent ID (nil)", nil),
+			Entry("absent ID (empty)", json.RawMessage(``)),
 		)
 
 		DescribeTable(
@@ -65,7 +66,8 @@ var _ = Describe("type Request", func() {
 			Entry("array params", json.RawMessage(`[]`)),
 			Entry("object params", json.RawMessage(`{}`)),
 			Entry("null params", json.RawMessage(`null`)),
-			Entry("absent params", nil),
+			Entry("absent params (nil)", nil),
+			Entry("absent params (empty)", json.RawMessage(``)),
 		)
 
 		It("returns an error if the JSON-RPC version is incorrect", func() {
@@ -114,6 +116,23 @@ var _ = Describe("type Request", func() {
 			req := Request{
 				Version:    "2.0",
 				Parameters: json.RawMessage(`123`),
+			}
+
+			err := req.Validate()
+			Expect(err).To(Equal(
+				NewErrorWithReservedCode(
+					InvalidParametersCode,
+					WithMessage(`parameters must be an array, an object, or null`),
+				),
+			))
+		})
+
+		// See https://github.com/dogmatiq/harpy/issues/13
+		It("returns an error if the parameters are an invalid type and the request is call", func() {
+			req := Request{
+				Version:    "2.0",
+				ID:         json.RawMessage(`123`),
+				Parameters: json.RawMessage(`456`),
 			}
 
 			err := req.Validate()

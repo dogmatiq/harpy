@@ -77,14 +77,16 @@ func (r Request) Validate() *Error {
 		)
 	}
 
-	if r.ID != nil {
-		return validateRequestID(r.ID)
+	if len(r.ID) != 0 {
+		if err := validateRequestID(r.ID); err != nil {
+			return err
+		}
 	}
 
 	// Do our best to validate the type of the parameters without actually
 	// unmarshaling them. It is expected that a full unmarshal will be performed
 	// in a handler via the UnmarshalParameters() method.
-	if r.Parameters == nil {
+	if len(r.Parameters) == 0 {
 		return nil
 	}
 
