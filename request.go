@@ -172,14 +172,14 @@ type RequestSet struct {
 	IsBatch bool
 }
 
-// ParseRequestSet reads and parses a JSON-RPC request or request batch from r.
+// UnmarshalRequestSet unmarshals a JSON-RPC request or request batch from r.
 //
 // If there is a problem parsing the request or the request is malformed, an
 // Error is returned. Any other non-nil error should be considered an IO error.
 //
 // On success it returns a request set containing well-formed (but not
 // necessarily valid) requests.
-func ParseRequestSet(r io.Reader) (RequestSet, error) {
+func UnmarshalRequestSet(r io.Reader) (RequestSet, error) {
 	br := bufio.NewReader(r)
 
 	for {
@@ -197,10 +197,10 @@ func ParseRequestSet(r io.Reader) (RequestSet, error) {
 		}
 
 		if ch == '[' {
-			return parseBatchRequest(br)
+			return unmarshalBatchRequest(br)
 		}
 
-		return parseSingleRequest(br)
+		return unmarshalSingleRequest(br)
 	}
 }
 
@@ -231,10 +231,11 @@ func (rs RequestSet) Validate() (Error, bool) {
 	return Error{}, true
 }
 
-func parseSingleRequest(r *bufio.Reader) (RequestSet, error) {
+// unmarshalSingleRequest unmarshals a non-batch JSON-RPC request set.
+func unmarshalSingleRequest(r *bufio.Reader) (RequestSet, error) {
 	var req Request
 
-	if err := parse(r, &req); err != nil {
+	if err := unmarshalJSONForRequest(r, &req); err != nil {
 		return RequestSet{}, err
 	}
 
@@ -244,10 +245,11 @@ func parseSingleRequest(r *bufio.Reader) (RequestSet, error) {
 	}, nil
 }
 
-func parseBatchRequest(r *bufio.Reader) (RequestSet, error) {
+// unmarshalSingleRequest unmarshals a batched JSON-RPC request set.
+func unmarshalBatchRequest(r *bufio.Reader) (RequestSet, error) {
 	var batch []Request
 
-	if err := parse(r, &batch); err != nil {
+	if err := unmarshalJSONForRequest(r, &batch); err != nil {
 		return RequestSet{}, err
 	}
 
@@ -257,7 +259,9 @@ func parseBatchRequest(r *bufio.Reader) (RequestSet, error) {
 	}, nil
 }
 
-func parse(r io.Reader, v interface{}) error {
+// unmarshalJSONForRequest unmarshals JSON content from r into v. If the JSON
+// cannot be parsed it returns a JSON-RPC error with the "parse error" code.
+func unmarshalJSONForRequest(r io.Reader, v interface{}) error {
 	dec := json.NewDecoder(r)
 	dec.DisallowUnknownFields()
 

@@ -53,5 +53,5 @@ func (r *RequestSetReader) Read(_ context.Context) (harpy.RequestSet, error) {
 		)
 	}
 
-	return harpy.ParseRequestSet(r.Request.Body)
+	return harpy.UnmarshalRequestSet(r.Request.Body)
 }

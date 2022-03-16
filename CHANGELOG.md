@@ -6,15 +6,27 @@ The format is based on [Keep a Changelog], and this project adheres to
 [Semantic Versioning].
 
 <!-- references -->
-[Keep a Changelog]: https://keepachangelog.com/en/1.0.0/
-[Semantic Versioning]: https://semver.org/spec/v2.0.0.html
+
+[keep a changelog]: https://keepachangelog.com/en/1.0.0/
+[semantic versioning]: https://semver.org/spec/v2.0.0.html
+
+## [Unreleased]
+
+### Added
+
+- Added `JSONRPCVersion` constant
+
+### Changed
+
+- **[BC]** Renamed `ParseRequestSet` to `UnmarshalRequestSet` to better match standard library
 
 ## [0.1.0] - 2021-08-05
 
 - Initial release
 
 <!-- references -->
-[Unreleased]: https://github.com/dogmatiq/harpy
+
+[unreleased]: https://github.com/dogmatiq/harpy
 [0.1.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.1.0
 
 <!-- version template

@@ -157,7 +157,7 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 			BeforeEach(func() {
 				reader.ReadFunc = func(context.Context) (RequestSet, error) {
 					// This is the error expected to be returned by
-					// ParseRequestSet() when non-JSON data is read.
+					// UnmarshalRequestSet() when non-JSON data is read.
 					return RequestSet{}, NewErrorWithReservedCode(ParseErrorCode)
 				}
 			})

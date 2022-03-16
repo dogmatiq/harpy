@@ -224,7 +224,7 @@ func (p validatableStub) Validate() error {
 }
 
 var _ = Describe("type RequestSet", func() {
-	Describe("func ParseRequestSet()", func() {
+	Describe("func UnmarshalRequestSet()", func() {
 		It("parses a single request", func() {
 			r := strings.NewReader(`{
 				"jsonrpc": "2.0",
@@ -233,7 +233,7 @@ var _ = Describe("type RequestSet", func() {
 				"params": [1, 2, 3]
 			}`)
 
-			rs, err := ParseRequestSet(r)
+			rs, err := UnmarshalRequestSet(r)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rs.IsBatch).To(BeFalse())
 			Expect(rs.Requests).To(ConsistOf(
@@ -254,7 +254,7 @@ var _ = Describe("type RequestSet", func() {
 				"params": [1, 2, 3]
 			}]`)
 
-			rs, err := ParseRequestSet(r)
+			rs, err := UnmarshalRequestSet(r)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rs.IsBatch).To(BeTrue())
 			Expect(rs.Requests).To(ConsistOf(
@@ -280,7 +280,7 @@ var _ = Describe("type RequestSet", func() {
 				"params": [4, 5, 6]
 			}]`)
 
-			rs, err := ParseRequestSet(r)
+			rs, err := UnmarshalRequestSet(r)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rs.IsBatch).To(BeTrue())
 			Expect(rs.Requests).To(ConsistOf(
@@ -302,7 +302,7 @@ var _ = Describe("type RequestSet", func() {
 		It("ignores leading whitespace", func() {
 			r := strings.NewReader(`    []`)
 
-			rs, err := ParseRequestSet(r)
+			rs, err := UnmarshalRequestSet(r)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rs.IsBatch).To(BeTrue())
 		})
@@ -310,7 +310,7 @@ var _ = Describe("type RequestSet", func() {
 		It("omits the ID field if it is not present in the request", func() {
 			r := strings.NewReader(`{}`)
 
-			rs, err := ParseRequestSet(r)
+			rs, err := UnmarshalRequestSet(r)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rs.Requests[0].ID).To(BeNil())
 		})
@@ -318,7 +318,7 @@ var _ = Describe("type RequestSet", func() {
 		It("includes the ID field if it set to NULL", func() {
 			r := strings.NewReader(`{"id": null}`)
 
-			rs, err := ParseRequestSet(r)
+			rs, err := UnmarshalRequestSet(r)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(rs.Requests[0].ID).To(Equal(json.RawMessage(`null`)))
 		})
@@ -326,14 +326,14 @@ var _ = Describe("type RequestSet", func() {
 		It("returns an error if the request can not be read", func() {
 			r := strings.NewReader(``)
 
-			_, err := ParseRequestSet(r)
+			_, err := UnmarshalRequestSet(r)
 			Expect(err).To(Equal(io.EOF))
 		})
 
 		It("returns an error if the request has invalid syntax", func() {
 			r := strings.NewReader(`}`)
 
-			_, err := ParseRequestSet(r)
+			_, err := UnmarshalRequestSet(r)
 
 			var e Error
 			Expect(err).To(BeAssignableToTypeOf(e))
@@ -346,7 +346,7 @@ var _ = Describe("type RequestSet", func() {
 		It("returns an error if a single request is malformed", func() {
 			r := strings.NewReader(`""`) // not an array or object
 
-			_, err := ParseRequestSet(r)
+			_, err := UnmarshalRequestSet(r)
 
 			var e Error
 			Expect(err).To(BeAssignableToTypeOf(e))
@@ -359,7 +359,7 @@ var _ = Describe("type RequestSet", func() {
 		It("returns an error if a request within a batch is malformed", func() {
 			r := strings.NewReader(`[""]`) // not an array or object
 
-			_, err := ParseRequestSet(r)
+			_, err := UnmarshalRequestSet(r)
 
 			var e Error
 			Expect(err).To(BeAssignableToTypeOf(e))
