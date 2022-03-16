@@ -245,7 +245,7 @@ func unmarshalSingleRequest(r *bufio.Reader) (RequestSet, error) {
 	}, nil
 }
 
-// unmarshalSingleRequest unmarshals a batched JSON-RPC request set.
+// unmarshalBatchRequest unmarshals a batched JSON-RPC request set.
 func unmarshalBatchRequest(r *bufio.Reader) (RequestSet, error) {
 	var batch []Request
 
