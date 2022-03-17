@@ -60,6 +60,63 @@ type Request struct {
 	Parameters json.RawMessage `json:"params,omitempty"`
 }
 
+// NewCallRequest returns a new JSON-RPC call request.
+//
+// The returned request is not necessarily valid; it should be validated by
+// calling Request.ValidateClientSide() before sending to a server.
+func NewCallRequest(
+	id interface{},
+	method string,
+	params interface{},
+) (Request, error) {
+	data, err := json.Marshal(id)
+	if err != nil {
+		return Request{}, fmt.Errorf("unable to marshal request ID: %w", err)
+	}
+
+	req, err := newRequest(data, method, params)
+	if err != nil {
+		return Request{}, err
+	}
+
+	req.ID = data
+
+	return req, nil
+}
+
+// NewNotifyRequest returns a new JSON-RPC notify request.
+//
+// The returned request is not necessarily valid; it should be validated by
+// calling Request.ValidateClientSide() before sending to a server.
+func NewNotifyRequest(
+	method string,
+	params interface{},
+) (Request, error) {
+	return newRequest(nil, method, params)
+}
+
+// newRequest returns a new JSON-RPC request.
+//
+// If id is nil the request represents a JSON-RPC notification; otherwise, it
+// represents a call.
+func newRequest(
+	id json.RawMessage,
+	method string,
+	params interface{},
+) (Request, error) {
+	data, err := json.Marshal(params)
+	if err != nil {
+		return Request{}, fmt.Errorf("unable to marshal request parameters: %w", err)
+	}
+
+	return Request{
+		Version:    JSONRPCVersion,
+		Method:     method,
+		ID:         id,
+		Parameters: data,
+	}, nil
+}
+
 // IsNotification returns true if r is a notification, as opposed to an RPC call
 // that expects a response.
 func (r Request) IsNotification() bool {

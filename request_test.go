@@ -13,6 +13,81 @@ import (
 )
 
 var _ = Describe("type Request", func() {
+	Describe("func NewCallRequest()", func() {
+		It("returns a call request", func() {
+			req, err := NewCallRequest(
+				123,
+				"<method>",
+				[]int{1, 2, 3},
+			)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(req).To(Equal(Request{
+				Version:    "2.0",
+				ID:         json.RawMessage(`123`),
+				Method:     "<method>",
+				Parameters: json.RawMessage(`[1,2,3]`),
+			}))
+		})
+
+		DescribeTable(
+			"encodes valid request ID values",
+			func(id interface{}, expect json.RawMessage) {
+				req, err := NewCallRequest(
+					id,
+					"<method>",
+					[]int{},
+				)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(req.ID).To(Equal(expect))
+
+			},
+			Entry("nil", nil, json.RawMessage(`null`)),
+			Entry("string", "<id>", json.RawMessage(`"\u003cid\u003e"`)),
+			Entry("number", 123, json.RawMessage(`123`)),
+		)
+
+		It("returns an error if the ID cannot be marshaled", func() {
+			_, err := NewCallRequest(
+				make(chan struct{}),
+				"<method>",
+				[]int{},
+			)
+			Expect(err).To(MatchError("unable to marshal request ID: json: unsupported type: chan struct {}"))
+		})
+
+		It("returns an error if the parameters cannot be marshaled", func() {
+			_, err := NewCallRequest(
+				json.RawMessage(`123`),
+				"<method>",
+				make(chan struct{}),
+			)
+			Expect(err).To(MatchError("unable to marshal request parameters: json: unsupported type: chan struct {}"))
+		})
+	})
+
+	Describe("func NewNotifyRequest()", func() {
+		It("returns a notification request", func() {
+			req, err := NewNotifyRequest(
+				"<method>",
+				[]int{1, 2, 3},
+			)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(req).To(Equal(Request{
+				Version:    "2.0",
+				Method:     "<method>",
+				Parameters: json.RawMessage(`[1,2,3]`),
+			}))
+		})
+
+		It("returns an error if the parameters cannot be marshaled", func() {
+			_, err := NewNotifyRequest(
+				"<method>",
+				make(chan struct{}),
+			)
+			Expect(err).To(MatchError("unable to marshal request parameters: json: unsupported type: chan struct {}"))
+		})
+	})
+
 	Describe("func IsNotification()", func() {
 		It("returns false when a request ID is present", func() {
 			req := Request{
