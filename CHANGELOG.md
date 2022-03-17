@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### Added
 
 - Added `JSONRPCVersion` constant
+- Added `Request.ValidateClientSide()` and `RequestSet.ValidateClientSide()`
 - Added `ResponseSet` and `UnmarshalResponseSet()`
 - Added `Response.Validate()`
 - Added `Error.MarshalData()` and `UnmarshalData()`

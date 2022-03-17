@@ -106,6 +106,21 @@ func (r Request) ValidateServerSide() *Error {
 	return nil
 }
 
+// ValidateClientSide checks that the request conforms to the JSON-RPC
+// specification.
+//
+// It is intended to be called before sending the request to a server; if the
+// request is invalid it returns the error that a server would return upon
+// receiving the request set.
+func (r Request) ValidateClientSide() *Error {
+	if err := r.ValidateServerSide(); err != nil {
+		err.isServerSide = false
+		return err
+	}
+
+	return nil
+}
+
 // UnmarshalParameters is a convenience method for unmarshaling request
 // parameters into a Go value.
 //
@@ -233,6 +248,21 @@ func (rs RequestSet) ValidateServerSide() *Error {
 		if err := req.ValidateServerSide(); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// ValidateClientSide checks that the request set is valid and that the requests
+// within conform to the JSON-RPC specification.
+//
+// It is intended to be called before sending the request set to a server; if
+// the request set is invalid it returns the error that a server would return
+// upon receiving the request set.
+func (rs RequestSet) ValidateClientSide() *Error {
+	if err := rs.ValidateServerSide(); err != nil {
+		err.isServerSide = false
+		return err
 	}
 
 	return nil

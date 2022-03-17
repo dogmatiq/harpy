@@ -14,6 +14,12 @@ type Error struct {
 	// message is the user-defined error message, if any.
 	message string
 
+	// dataValue and dataJSON are the Go value and JSON representations of the
+	// user-defined error value that is attached to the error, if any.
+	m         sync.Mutex
+	dataValue interface{}
+	dataJSON  json.RawMessage
+
 	// isServerSide indicates whether or not this error was created within a
 	// Harpy JSON-RPC server and is intended to be delivered to the caller.
 	//
@@ -22,12 +28,6 @@ type Error struct {
 
 	// cause is the Go error that caused this JSON-RPC error, if any.
 	cause error
-
-	// dataValue and dataJSON are the Go value and JSON representations of the
-	// user-defined error value that is attached to the error, if any.
-	m         sync.Mutex
-	dataValue interface{}
-	dataJSON  json.RawMessage
 }
 
 // newError returns a new Error with the given code.
@@ -77,6 +77,21 @@ func NewErrorWithReservedCode(code ErrorCode, options ...ErrorOption) *Error {
 	}
 
 	return newError(code, options)
+}
+
+// NewClientSideError returns a new client-side error that represents a JSON-RPC
+// error returned as part of an ErrorResponse.
+func NewClientSideError(
+	code ErrorCode,
+	message string,
+	data json.RawMessage,
+) *Error {
+	return &Error{
+		code:         code,
+		message:      message,
+		dataJSON:     data,
+		isServerSide: false,
+	}
 }
 
 // MethodNotFound returns an error that indicates the requested method does not
