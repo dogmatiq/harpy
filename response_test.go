@@ -195,6 +195,31 @@ var _ = Describe("type ErrorResponse", func() {
 					},
 				))
 			})
+
+			It("returns an ErrorResponse indicating an internal error when the native error is a client-side error", func() {
+				err := NewClientSideError(
+					789,
+					"<error>",
+					nil,
+				)
+
+				res := NewErrorResponse(
+					json.RawMessage(`123`),
+					err,
+				)
+
+				Expect(res).To(MatchAllFields(
+					Fields{
+						"Version":   Equal(`2.0`),
+						"RequestID": Equal(json.RawMessage(`123`)),
+						"Error": Equal(ErrorInfo{
+							Code:    InternalErrorCode,
+							Message: "internal server error",
+						}),
+						"ServerError": Equal(err),
+					},
+				))
+			})
 		})
 
 		When("the error is not a native JSON-RPC error, and it is not an internal error", func() {
