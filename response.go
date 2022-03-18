@@ -17,6 +17,9 @@ type Response interface {
 	// It returns nil if the response is valid.
 	Validate() error
 
+	// UnmarshalRequestID unmarshals the request ID in the response into v.
+	UnmarshalRequestID(v interface{}) error
+
 	isResponse()
 }
 
@@ -75,6 +78,11 @@ func (r SuccessResponse) Validate() error {
 	}
 
 	return nil
+}
+
+// UnmarshalRequestID unmarshals the request ID in the response into v.
+func (r SuccessResponse) UnmarshalRequestID(v interface{}) error {
+	return json.Unmarshal(r.RequestID, v)
 }
 
 func (SuccessResponse) isResponse() {}
@@ -181,6 +189,11 @@ func (r ErrorResponse) Validate() error {
 	}
 
 	return nil
+}
+
+// UnmarshalRequestID unmarshals the request ID in the response into v.
+func (r ErrorResponse) UnmarshalRequestID(v interface{}) error {
+	return json.Unmarshal(r.RequestID, v)
 }
 
 func (ErrorResponse) isResponse() {}

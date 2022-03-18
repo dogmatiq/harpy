@@ -131,6 +131,20 @@ var _ = Describe("type SuccessResponse", func() {
 			Entry("empty result", json.RawMessage(``)),
 		)
 	})
+
+	Describe("func UnmarshalRequestID()", func() {
+		It("unmarshals the request ID", func() {
+			res := SuccessResponse{
+				Version:   "2.0",
+				RequestID: json.RawMessage(`123`),
+			}
+
+			var id interface{}
+			err := res.UnmarshalRequestID(&id)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(id).To(BeNumerically("==", 123))
+		})
+	})
 })
 
 var _ = Describe("type ErrorResponse", func() {
@@ -318,6 +332,20 @@ var _ = Describe("type ErrorResponse", func() {
 
 			err := res.Validate()
 			Expect(err).To(MatchError("unexpected end of JSON input"))
+		})
+	})
+
+	Describe("func UnmarshalRequestID()", func() {
+		It("unmarshals the request ID", func() {
+			res := ErrorResponse{
+				Version:   "2.0",
+				RequestID: json.RawMessage(`123`),
+			}
+
+			var id interface{}
+			err := res.UnmarshalRequestID(&id)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(id).To(BeNumerically("==", 123))
 		})
 	})
 })
