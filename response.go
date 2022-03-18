@@ -196,12 +196,7 @@ func validateRequestIDInResponse(id json.RawMessage) error {
 			return err
 		}
 
-		switch value.(type) {
-		case string:
-			return nil
-		case float64:
-			return nil
-		case nil:
+		if isValidRequestIDType(value) {
 			return nil
 		}
 	}

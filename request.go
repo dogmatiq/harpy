@@ -221,18 +221,27 @@ func validateRequestID(id json.RawMessage) *Error {
 		)
 	}
 
+	if isValidRequestIDType(value) {
+		return nil
+	}
+
+	return NewErrorWithReservedCode(
+		InvalidRequestCode,
+		WithMessage(`request ID must be a JSON string, number or null`),
+	)
+}
+
+// isValidRequestIDType returns true if value's type is one of the allowed
+// JSON-RPC request ID types.
+//
+// It only allows the types used by json.Unmarshal(), it does not allow all
+// integer/floating-point types.
+func isValidRequestIDType(value interface{}) bool {
 	switch value.(type) {
-	case string:
-		return nil
-	case float64:
-		return nil
-	case nil:
-		return nil
+	case string, float64, nil:
+		return true
 	default:
-		return NewErrorWithReservedCode(
-			InvalidRequestCode,
-			WithMessage(`request ID must be a JSON string, number or null`),
-		)
+		return false
 	}
 }
 
