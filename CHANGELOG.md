@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 - Added `Response.Validate()`
 - Added `Response.UnmarshalRequestID()`
 - Added `Error.MarshalData()` and `UnmarshalData()`
+- Added `BatchRequestMarshaler`
 
 ### Changed
 

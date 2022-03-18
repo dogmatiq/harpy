@@ -386,3 +386,57 @@ type Validatable interface {
 	// parameters" error, and therefore should not itself be a JSON-RPC error.
 	Validate() error
 }
+
+// BatchRequestMarshaler marshals a batch of JSON-RPC requests to an io.Writer.
+type BatchRequestMarshaler struct {
+	Writer io.Writer
+
+	encoder *json.Encoder
+	closed  bool
+}
+
+var (
+	openArray  = []byte(`[`)
+	closeArray = []byte(`]`)
+	comma      = []byte(`,`)
+)
+
+// MarshalRequest marshals the next JSON-RPC request in the batch to m.Writer.
+//
+// It panics if the marshaler is already closed.
+func (m *BatchRequestMarshaler) MarshalRequest(req Request) error {
+	if m.closed {
+		panic("marshaler has been closed")
+	}
+
+	sep := openArray
+	if m.encoder != nil {
+		sep = comma
+	} else {
+		m.encoder = json.NewEncoder(m.Writer)
+	}
+
+	if _, err := m.Writer.Write(sep); err != nil {
+		return err
+	}
+
+	return m.encoder.Encode(req)
+}
+
+// Close finishes writing the batch to m.Writer.
+//
+// If no requests have been marshaled, Close() is a no-op. This means that no
+// data will have been written to m.Writer at all.
+func (m *BatchRequestMarshaler) Close() error {
+	m.closed = true
+
+	if m.encoder == nil {
+		return nil
+	}
+
+	if _, err := m.Writer.Write(closeArray); err != nil {
+		return err
+	}
+
+	return nil
+}
