@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 - **[BC]** Renamed `RequestSet.Validate()` to `ValidateServerSide`
 - **[BC]** Renamed `Request.Validate()` to `ValidateServerSide`
 - **[BC]** Changed `Error` to use pointer receivers (hence `*Error` now implements `error`)
+- `httptransport.Handler` now sends HTTP 204 (no content) in response to a single notification request
 
 ### Removed
 
