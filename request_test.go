@@ -753,7 +753,7 @@ var _ = Describe("type BatchRequestMarshaler", func() {
 	BeforeEach(func() {
 		buf = &bytes.Buffer{}
 		marshaler = &BatchRequestMarshaler{
-			Writer: buf,
+			Target: buf,
 		}
 
 		var err error
@@ -790,7 +790,7 @@ var _ = Describe("type BatchRequestMarshaler", func() {
 		})
 
 		It("returns an error if the marshaled request can not be written", func() {
-			marshaler.Writer = iotest.NewFailer(nil, nil)
+			marshaler.Target = iotest.NewFailer(nil, nil)
 
 			err := marshaler.MarshalRequest(req1)
 			Expect(err).To(MatchError(`<induced write error>`))
@@ -815,7 +815,7 @@ var _ = Describe("type BatchRequestMarshaler", func() {
 		It("returns an error if the closing bracket can not be written", func() {
 			err := marshaler.MarshalRequest(req1)
 
-			marshaler.Writer = iotest.NewFailer(nil, nil)
+			marshaler.Target = iotest.NewFailer(nil, nil)
 
 			err = marshaler.Close()
 			Expect(err).To(MatchError(`<induced write error>`))
