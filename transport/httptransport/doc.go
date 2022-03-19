@@ -1,3 +1,5 @@
-// Package httptransport provides a JSON-RPC transport based on a standard Go
-// http.Handler.
+// Package httptransport provides a simple HTTP-based JSON-RPC transport.
+//
+// Requests are sent by making an HTTP post request. The implementation
+// integrates with Go's native HTTP package.
 package httptransport

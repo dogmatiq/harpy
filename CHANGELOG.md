@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ### Added
 
+- Added `httptransport.Client`
 - Added `JSONRPCVersion` constant
 - Added `NewCallRequest()` and `NewNotifyRequest()`
 - Added `Request.ValidateClientSide()` and `RequestSet.ValidateClientSide()`
