@@ -13,6 +13,9 @@ type ResponseWriter struct {
 	// Target is the writer used to send JSON-RPC responses.
 	Target http.ResponseWriter
 
+	// hasResponse is true if any kind of response has been written.
+	hasResponse bool
+
 	// arrayOpen indicates whether the JSON opening array bracket has been
 	// written as part of a batch response.
 	arrayOpen bool
@@ -97,6 +100,10 @@ func (w *ResponseWriter) Close() error {
 		return err
 	}
 
+	if !w.hasResponse {
+		w.Target.WriteHeader(http.StatusNoContent)
+	}
+
 	return nil
 }
 
@@ -108,6 +115,7 @@ func (w *ResponseWriter) writeHeaders(status int) {
 
 // writeResponse writes a JSON-RPC response to the HTTP response body.
 func (w *ResponseWriter) writeResponse(res harpy.Response) error {
+	w.hasResponse = true
 	enc := json.NewEncoder(w.Target)
 	return enc.Encode(res)
 }

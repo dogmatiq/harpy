@@ -2,6 +2,7 @@ package httptransport_test
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -55,7 +56,7 @@ var _ = Describe("type Handler", func() {
 		server.Close()
 	})
 
-	When("the request is not a batch", func() {
+	When("the request is a non-batched call", func() {
 		It("responds with an unbatched response", func() {
 			res, err := http.Post(server.URL, "application/json", request)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -70,6 +71,24 @@ var _ = Describe("type Handler", func() {
 				"id": 123,
 				"result": [1, 2, 3]
 			}`))
+		})
+	})
+
+	When("the request is non-batched notification", func() {
+		It("responds with an HTTP 204 (no content) status", func() {
+			request = strings.NewReader(`{
+				"jsonrpc": "2.0",
+				"params": [1, 2, 3]
+			}`)
+
+			res, err := http.Post(server.URL, "application/json", request)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(res.StatusCode).To(Equal(http.StatusNoContent))
+			defer res.Body.Close()
+
+			data, err := io.ReadAll(res.Body)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(data).To(BeEmpty())
 		})
 	})
 
