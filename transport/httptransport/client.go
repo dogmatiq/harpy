@@ -233,7 +233,9 @@ func (c *Client) postSingleRequest(
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL, body)
 	if err != nil {
-		return nil, err
+		// CODE COVERAGE: The main failure case for NewRequestWithContext() is
+		// an invalid HTTP method, but we hardcode it here.
+		panic(err)
 	}
 
 	httpReq.Header.Set("Content-Type", mediaType)

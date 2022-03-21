@@ -64,8 +64,7 @@ var _ = Describe("type Client", func() {
 		)
 
 		client = &Client{
-			HTTPClient: server.Client(),
-			URL:        server.URL,
+			URL: server.URL,
 		}
 	})
 
