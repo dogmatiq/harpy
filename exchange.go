@@ -124,15 +124,15 @@ func readRequestSet(
 	if readErr != nil {
 		if readErr == ctx.Err() {
 			// The context was canceled while waiting for the next request set,
-			// return the error to the caller without doing anything. The would be
-			// the typical path used to abort execution of a blocked call to
+			// return the error to the caller without doing anything. The would
+			// be the typical path used to abort execution of a blocked call to
 			// Exchange().
 			return RequestSet{}, false, readErr
 		}
 
 		if _, ok := readErr.(*Error); ok {
-			// There was no problem reading data for the request set, but it could
-			// not be parsed as JSON.
+			// There was no problem reading data for the request set, but it
+			// could not be parsed as JSON.
 			res := NewErrorResponse(nil, readErr)
 			l.LogError(res)
 
