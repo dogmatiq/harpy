@@ -1,12 +1,14 @@
 package harpy_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
 	"strings"
 
 	. "github.com/dogmatiq/harpy"
+	"github.com/dogmatiq/iago/iotest"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -737,6 +739,86 @@ var _ = Describe("type RequestSet", func() {
 					nil,
 				),
 			))
+		})
+	})
+})
+
+var _ = Describe("type BatchRequestMarshaler", func() {
+	var (
+		buf        *bytes.Buffer
+		marshaler  *BatchRequestMarshaler
+		req1, req2 Request
+	)
+
+	BeforeEach(func() {
+		buf = &bytes.Buffer{}
+		marshaler = &BatchRequestMarshaler{
+			Target: buf,
+		}
+
+		var err error
+		req1, err = NewCallRequest(123, "<call>", []int{1, 2, 3})
+		Expect(err).ShouldNot(HaveOccurred())
+
+		req2, err = NewNotifyRequest("<notify>", []int{4, 5, 6})
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+
+	Describe("func MarshalRequest()", func() {
+		It("marshals requests into a batch", func() {
+			err := marshaler.MarshalRequest(req1)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			err = marshaler.MarshalRequest(req2)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			err = marshaler.Close()
+			Expect(err).ShouldNot(HaveOccurred())
+
+			rs, err := UnmarshalRequestSet(buf)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Expect(rs.IsBatch).To(BeTrue())
+			Expect(rs.Requests).To(ContainElements(req1, req2))
+		})
+
+		It("returns an error if the request cannot be marshaled", func() {
+			req1.ID = json.RawMessage(`}`)
+
+			err := marshaler.MarshalRequest(req1)
+			Expect(err).To(MatchError(`json: error calling MarshalJSON for type json.RawMessage: invalid character '}' looking for beginning of value`))
+		})
+
+		It("returns an error if the marshaled request can not be written", func() {
+			marshaler.Target = iotest.NewFailer(nil, nil)
+
+			err := marshaler.MarshalRequest(req1)
+			Expect(err).To(MatchError(`<induced write error>`))
+		})
+
+		It("panics if the marshaler has been closed", func() {
+			marshaler.Close()
+
+			Expect(func() {
+				marshaler.MarshalRequest(req1)
+			}).To(PanicWith("marshaler has been closed"))
+		})
+	})
+
+	Describe("func Close()", func() {
+		It("does not write anything if no requests have been written", func() {
+			err := marshaler.Close()
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(buf.Bytes()).To(BeEmpty())
+		})
+
+		It("returns an error if the closing bracket can not be written", func() {
+			err := marshaler.MarshalRequest(req1)
+
+			marshaler.Target = iotest.NewFailer(nil, nil)
+
+			err = marshaler.Close()
+			Expect(err).To(MatchError(`<induced write error>`))
 		})
 	})
 })
