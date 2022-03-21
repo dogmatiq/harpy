@@ -43,7 +43,7 @@ type SuccessResponse struct {
 // If the result can not be marshaled an ErrorResponse is returned instead.
 func NewSuccessResponse(requestID json.RawMessage, result interface{}) Response {
 	res := SuccessResponse{
-		Version:   JSONRPCVersion,
+		Version:   jsonRPCVersion,
 		RequestID: requestID,
 	}
 
@@ -65,7 +65,7 @@ func NewSuccessResponse(requestID json.RawMessage, result interface{}) Response 
 //
 // It returns nil if the response is valid.
 func (r SuccessResponse) Validate() error {
-	if r.Version != JSONRPCVersion {
+	if r.Version != jsonRPCVersion {
 		return errors.New(`response version must be "2.0"`)
 	}
 
@@ -117,7 +117,7 @@ func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
 
 	if isInternalError(err) {
 		return ErrorResponse{
-			Version:   JSONRPCVersion,
+			Version:   jsonRPCVersion,
 			RequestID: requestID,
 			Error: ErrorInfo{
 				Code:    InternalErrorCode,
@@ -128,7 +128,7 @@ func NewErrorResponse(requestID json.RawMessage, err error) ErrorResponse {
 	}
 
 	return ErrorResponse{
-		Version:   JSONRPCVersion,
+		Version:   jsonRPCVersion,
 		RequestID: requestID,
 		Error: ErrorInfo{
 			Code:    InternalErrorCode,
@@ -145,7 +145,7 @@ func newNativeErrorResponse(requestID json.RawMessage, nerr *Error) ErrorRespons
 	}
 
 	res := ErrorResponse{
-		Version:   JSONRPCVersion,
+		Version:   jsonRPCVersion,
 		RequestID: requestID,
 		Error: ErrorInfo{
 			Code:    nerr.Code(),
@@ -180,7 +180,7 @@ func newNativeErrorResponse(requestID json.RawMessage, nerr *Error) ErrorRespons
 //
 // It returns nil if the response is valid.
 func (r ErrorResponse) Validate() error {
-	if r.Version != JSONRPCVersion {
+	if r.Version != jsonRPCVersion {
 		return errors.New(`response version must be "2.0"`)
 	}
 

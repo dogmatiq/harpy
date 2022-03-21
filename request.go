@@ -9,9 +9,9 @@ import (
 	"unicode"
 )
 
-// JSONRPCVersion is the version that must appear in the "jsonrpc" field of
+// jsonRPCVersion is the version that must appear in the "jsonrpc" field of
 // JSON-RPC 2.0 requests and responses.
-const JSONRPCVersion = "2.0"
+const jsonRPCVersion = "2.0"
 
 // Request encapsulates a JSON-RPC request.
 type Request struct {
@@ -110,7 +110,7 @@ func newRequest(
 	}
 
 	return Request{
-		Version:    JSONRPCVersion,
+		Version:    jsonRPCVersion,
 		Method:     method,
 		ID:         id,
 		Parameters: data,
@@ -129,7 +129,7 @@ func (r Request) IsNotification() bool {
 // If the request is invalid it returns a JSON-RPC error intended to be sent to
 // the caller in an ErrorResponse.
 func (r Request) ValidateServerSide() *Error {
-	if r.Version != JSONRPCVersion {
+	if r.Version != jsonRPCVersion {
 		return NewErrorWithReservedCode(
 			InvalidRequestCode,
 			WithMessage(`request version must be "2.0"`),
