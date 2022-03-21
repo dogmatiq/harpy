@@ -69,9 +69,26 @@ func (c *Client) Call(
 	}
 	defer httpRes.Body.Close()
 
-	res, err := c.unmarshalSingleResponse(requestID, httpRes)
+	res, err := c.unmarshalSingleResponse(httpRes)
 	if err != nil {
 		return fmt.Errorf("unable to process JSON-RPC response (%s): %w", method, err)
+	}
+
+	var requestIDInResponse uint32
+	if err := res.UnmarshalRequestID(&requestIDInResponse); err != nil {
+		return fmt.Errorf(
+			"unable to process JSON-RPC response (%s): request ID in response is expected to be an integer",
+			method,
+		)
+	}
+
+	if requestIDInResponse != requestID {
+		return fmt.Errorf(
+			"unable to process JSON-RPC response (%s): request ID in response (%d) does not match the actual request ID (%d)",
+			method,
+			requestIDInResponse,
+			requestID,
+		)
 	}
 
 	switch res := res.(type) {
@@ -100,12 +117,92 @@ func (c *Client) Call(
 	return nil
 }
 
+// Notify sends a JSON-RPC notification.
+func (c *Client) Notify(
+	ctx context.Context,
+	method string,
+	params interface{},
+) error {
+	req, err := harpy.NewNotifyRequest(
+		method,
+		params,
+	)
+	if err != nil {
+		panic(fmt.Sprintf(
+			"unable to send JSON-RPC notification (%s): %s",
+			method,
+			err,
+		))
+	}
+
+	if err := req.ValidateClientSide(); err != nil {
+		panic(fmt.Sprintf(
+			"unable to send JSON-RPC notification (%s): %s",
+			method,
+			err.Message(),
+		))
+	}
+
+	httpRes, err := c.postSingleRequest(ctx, req)
+	if err != nil {
+		return fmt.Errorf("unable to send JSON-RPC notification (%s): %w", method, err)
+	}
+	defer httpRes.Body.Close()
+
+	// If there is no content that's a "success" as far as a notification is
+	// concerned.
+	if httpRes.StatusCode == http.StatusNoContent {
+		return nil
+	}
+
+	// If there is content of any kind, we expect it be a client error,
+	// otherwise the server is misbehaving.
+	if httpRes.StatusCode < http.StatusBadRequest ||
+		httpRes.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf(
+			"unable to process JSON-RPC response (%s): unexpected HTTP %d (%s) status code in response to JSON-RPC notification",
+			method,
+			httpRes.StatusCode,
+			http.StatusText(httpRes.StatusCode),
+		)
+	}
+
+	res, err := c.unmarshalSingleResponse(httpRes)
+	if err != nil {
+		return fmt.Errorf("unable to process JSON-RPC response (%s): %w", method, err)
+	}
+
+	if res, ok := res.(harpy.ErrorResponse); ok {
+		var requestIDInResponse interface{}
+		if err := res.UnmarshalRequestID(&requestIDInResponse); err != nil || requestIDInResponse != nil {
+			return fmt.Errorf(
+				"unable to process JSON-RPC response (%s): request ID in response is expected to be null",
+				method,
+			)
+		}
+
+		return harpy.NewClientSideError(
+			res.Error.Code,
+			res.Error.Message,
+			res.Error.Data,
+		)
+	}
+
+	// The server has returned a SUCCESSFUL response to a notification, which is
+	// nonsensical. Even though this response indicates a success it is likely
+	// that a server misbehaving this badly should not be trusted, so we still
+	// produce an error.
+	return fmt.Errorf(
+		"unable to process JSON-RPC response (%s): did not expect a successful JSON-RPC response to a notification, HTTP status code is %d (%s)",
+		method,
+		httpRes.StatusCode,
+		http.StatusText(httpRes.StatusCode),
+	)
+}
+
 // unmarshalSingleResponse unmarshals a single (non-batched) JSON-RPC response
 // from a HTTP response.
-func (c *Client) unmarshalSingleResponse(
-	requestID uint32,
-	httpRes *http.Response,
-) (harpy.Response, error) {
+func (c *Client) unmarshalSingleResponse(httpRes *http.Response) (harpy.Response, error) {
 	if ct := httpRes.Header.Get("Content-Type"); ct != mediaType {
 		return nil, fmt.Errorf("unexpected content-type in HTTP response (%s)", ct)
 	}
@@ -119,21 +216,7 @@ func (c *Client) unmarshalSingleResponse(
 		return nil, errors.New("unexpected JSON-RPC batch response")
 	}
 
-	res := rs.Responses[0]
-	var requestIDInResponse uint32
-	if err := res.UnmarshalRequestID(&requestIDInResponse); err != nil {
-		return nil, errors.New("request ID in response is not an integer")
-	}
-
-	if requestIDInResponse != requestID {
-		return nil, fmt.Errorf(
-			"request ID in response (%d) does not match the actual request ID (%d)",
-			requestIDInResponse,
-			requestID,
-		)
-	}
-
-	return res, nil
+	return rs.Responses[0], nil
 }
 
 // postSingleRequest sends a single (non-batched) request to the server.

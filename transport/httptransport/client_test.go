@@ -253,7 +253,7 @@ var _ = Describe("type Client", func() {
 				var result []int
 				err := client.Call(ctx, "echo", params, &result)
 				Expect(err).To(MatchError(
-					`unable to process JSON-RPC response (echo): request ID in response is not an integer`,
+					`unable to process JSON-RPC response (echo): request ID in response is expected to be an integer`,
 				))
 			})
 
@@ -273,6 +273,200 @@ var _ = Describe("type Client", func() {
 				err := client.Call(ctx, "echo", params, &result)
 				Expect(err).To(MatchError(
 					`unable to process JSON-RPC response (echo): request ID in response (123) does not match the actual request ID (1)`,
+				))
+			})
+		})
+	})
+
+	Describe("func Notify()", func() {
+		It("returns nil on success", func() {
+			called := false
+			router["echo"] = func(
+				_ context.Context,
+				req harpy.Request,
+			) (interface{}, error) {
+				var params []int
+				if err := req.UnmarshalParameters(&params); err != nil {
+					return nil, err
+				}
+
+				Expect(params).To(Equal([]int{1, 2, 3}))
+				called = true
+
+				return nil, nil
+			}
+
+			params := []int{1, 2, 3}
+			err := client.Notify(ctx, "echo", params)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(called).To(BeTrue())
+		})
+
+		It("returns the JSON-RPC error produced by the server", func() {
+			// We have to force the server to return an error here as the Harpy
+			// server only responds with a JSON-RPC error if the request set
+			// cannot be parsed, and our client can't produce invalid JSON.
+			handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte(`{
+						"jsonrpc": "2.0",
+						"id": null,
+						"error": {
+							"code": 123,
+							"message": "<message>",
+							"data": [1, 2, 3]
+						}
+					}`))
+			})
+
+			err := client.Notify(ctx, "<method>", []interface{}{})
+			Expect(err).Should(HaveOccurred())
+
+			var rpcErr *harpy.Error
+			Expect(err).To(BeAssignableToTypeOf(rpcErr))
+
+			rpcErr = err.(*harpy.Error)
+			Expect(rpcErr.Code()).To(BeNumerically("==", 123))
+			Expect(rpcErr.Message()).To(Equal("<message>"))
+
+			var data []int
+			ok, err := rpcErr.UnmarshalData(&data)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(data).To(Equal([]int{1, 2, 3}))
+		})
+
+		It("returns an error if there is a network error", func() {
+			server.Close()
+
+			params := []int{1, 2, 3}
+			err := client.Notify(ctx, "echo", params)
+			Expect(err).To(MatchError(
+				fmt.Sprintf(
+					`unable to send JSON-RPC notification (echo): Post "%s": dial tcp %s: connect: connection refused`,
+					server.URL,
+					strings.TrimPrefix(server.URL, "http://"),
+				),
+			))
+		})
+
+		It("panics if the JSON-RPC request can not be built", func() {
+			Expect(func() {
+				client.Notify(
+					ctx,
+					"<method>",
+					make(chan struct{}),
+				)
+			}).To(PanicWith(
+				`unable to send JSON-RPC notification (<method>): unable to marshal request parameters: json: unsupported type: chan struct {}`,
+			))
+		})
+
+		It("panics if the JSON-RPC request can not be validated", func() {
+			Expect(func() {
+				client.Notify(
+					ctx,
+					"<method>",
+					123,
+				)
+			}).To(PanicWith(
+				`unable to send JSON-RPC notification (<method>): parameters must be an array, an object, or null`,
+			))
+		})
+
+		When("the server exhibits unexpected behavior", func() {
+			It("returns an error if the server responds with an unexpected content type", func() {
+				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "text/plain")
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte("OK"))
+				})
+
+				params := []int{1, 2, 3}
+				err := client.Notify(ctx, "echo", params)
+				Expect(err).To(MatchError("unable to process JSON-RPC response (echo): unexpected content-type in HTTP response (text/plain)"))
+			})
+
+			It("returns an error if the JSON-RPC response cannot be parsed", func() {
+				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte("{"))
+				})
+
+				params := []int{1, 2, 3}
+				err := client.Notify(ctx, "echo", params)
+				Expect(err).To(MatchError("unable to process JSON-RPC response (echo): cannot unmarshal JSON-RPC response: unexpected EOF"))
+			})
+
+			It("returns an error if the JSON-RPC response is a batch", func() {
+				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte(`[{
+							"jsonrpc": "2.0",
+							"id": 123,
+							"result": {}
+						}]`))
+				})
+
+				params := []int{1, 2, 3}
+				err := client.Notify(ctx, "echo", params)
+				Expect(err).To(MatchError("unable to process JSON-RPC response (echo): unexpected JSON-RPC batch response"))
+			})
+
+			It("returns an error if server returns a JSON-RPC success response", func() {
+				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte(`{
+							"jsonrpc": "2.0",
+							"id": null,
+							"result": {}
+						}`))
+				})
+
+				params := []int{1, 2, 3}
+				err := client.Notify(ctx, "echo", params)
+				Expect(err).To(MatchError(
+					`unable to process JSON-RPC response (echo): did not expect a successful JSON-RPC response to a notification, HTTP status code is 400 (Bad Request)`,
+				))
+			})
+
+			It("returns an error if server returns a JSON-RPC error response with a non-null request ID", func() {
+				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte(`{
+							"jsonrpc": "2.0",
+							"id": "<id>",
+							"error": {}
+						}`))
+				})
+
+				params := []int{1, 2, 3}
+				err := client.Notify(ctx, "echo", params)
+				Expect(err).To(MatchError(
+					`unable to process JSON-RPC response (echo): request ID in response is expected to be null`,
+				))
+			})
+
+			It("returns an error if server responds with a successful HTTP status code and content", func() {
+				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`{
+							"jsonrpc": "2.0",
+							"id": null,
+							"result": {}
+						}`))
+				})
+
+				params := []int{1, 2, 3}
+				err := client.Notify(ctx, "echo", params)
+				Expect(err).To(MatchError(
+					`unable to process JSON-RPC response (echo): unexpected HTTP 200 (OK) status code in response to JSON-RPC notification`,
 				))
 			})
 		})
