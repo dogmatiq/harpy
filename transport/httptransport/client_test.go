@@ -175,7 +175,7 @@ var _ = Describe("type Client", func() {
 			Entry("non-pointer", "<string>"),
 		)
 
-		When("the server exhibits produces an unexpected response", func() {
+		When("the server exhibits unexpected behavior", func() {
 			It("returns an error if the server responds with an unexpected content type", func() {
 				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "text/plain")
