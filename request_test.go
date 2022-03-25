@@ -111,15 +111,18 @@ var _ = Describe("type Request", func() {
 
 	Describe("func ValidateServerSide()", func() {
 		DescribeTable(
-			"it returns nil when the request is valid (request IDs)",
+			"it returns true when the request is valid (request IDs)",
 			func(id json.RawMessage) {
 				req := Request{
 					Version: "2.0",
 					ID:      id,
 				}
 
-				err := req.ValidateServerSide()
-				Expect(err).ShouldNot(HaveOccurred())
+				err, ok := req.ValidateServerSide()
+				if !ok {
+					Expect(err).To(Equal(Error{}))
+					Expect(ok).To(BeTrue())
+				}
 			},
 			Entry("string ID", json.RawMessage(`"<id>"`)),
 			Entry("integer ID", json.RawMessage(`1`)),
@@ -130,15 +133,18 @@ var _ = Describe("type Request", func() {
 		)
 
 		DescribeTable(
-			"it returns nil when the request is valid (parameters)",
+			"it returns true when the request is valid (parameters)",
 			func(params json.RawMessage) {
 				req := Request{
 					Version:    "2.0",
 					Parameters: params,
 				}
 
-				err := req.ValidateServerSide()
-				Expect(err).ShouldNot(HaveOccurred())
+				err, ok := req.ValidateServerSide()
+				if !ok {
+					Expect(err).To(Equal(Error{}))
+					Expect(ok).To(BeTrue())
+				}
 			},
 			Entry("array params", json.RawMessage(`[]`)),
 			Entry("object params", json.RawMessage(`{}`)),
@@ -153,13 +159,14 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`1`),
 			}
 
-			err := req.ValidateServerSide()
+			err, ok := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
 					WithMessage(`request version must be "2.0"`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if the request ID is an invalid type", func() {
@@ -168,13 +175,14 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{}`),
 			}
 
-			err := req.ValidateServerSide()
+			err, ok := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
 					WithMessage(`request ID must be a JSON string, number or null`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if the request ID is not valid JSON", func() {
@@ -183,10 +191,11 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{`),
 			}
 
-			err := req.ValidateServerSide()
+			err, ok := req.ValidateServerSide()
 			Expect(err).Should(HaveOccurred())
 			Expect(err.Code()).To(Equal(ParseErrorCode))
 			Expect(err.Unwrap()).To(MatchError("unexpected end of JSON input"))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if the parameters are an invalid type", func() {
@@ -195,13 +204,14 @@ var _ = Describe("type Request", func() {
 				Parameters: json.RawMessage(`123`),
 			}
 
-			err := req.ValidateServerSide()
+			err, ok := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidParametersCode,
 					WithMessage(`parameters must be an array, an object, or null`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		// See https://github.com/dogmatiq/harpy/issues/13
@@ -212,27 +222,31 @@ var _ = Describe("type Request", func() {
 				Parameters: json.RawMessage(`456`),
 			}
 
-			err := req.ValidateServerSide()
+			err, ok := req.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidParametersCode,
 					WithMessage(`parameters must be an array, an object, or null`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 	})
 
 	Describe("func ValidateClientSide()", func() {
 		DescribeTable(
-			"it returns nil when the request is valid (request IDs)",
+			"it returns true when the request is valid (request IDs)",
 			func(id json.RawMessage) {
 				req := Request{
 					Version: "2.0",
 					ID:      id,
 				}
 
-				err := req.ValidateClientSide()
-				Expect(err).ShouldNot(HaveOccurred())
+				err, ok := req.ValidateClientSide()
+				if !ok {
+					Expect(err).To(Equal(Error{}))
+					Expect(ok).To(BeTrue())
+				}
 			},
 			Entry("string ID", json.RawMessage(`"<id>"`)),
 			Entry("integer ID", json.RawMessage(`1`)),
@@ -243,15 +257,18 @@ var _ = Describe("type Request", func() {
 		)
 
 		DescribeTable(
-			"it returns nil when the request is valid (parameters)",
+			"it returns true when the request is valid (parameters)",
 			func(params json.RawMessage) {
 				req := Request{
 					Version:    "2.0",
 					Parameters: params,
 				}
 
-				err := req.ValidateClientSide()
-				Expect(err).ShouldNot(HaveOccurred())
+				err, ok := req.ValidateClientSide()
+				if !ok {
+					Expect(err).To(Equal(Error{}))
+					Expect(ok).To(BeTrue())
+				}
 			},
 			Entry("array params", json.RawMessage(`[]`)),
 			Entry("object params", json.RawMessage(`{}`)),
@@ -266,7 +283,7 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`1`),
 			}
 
-			err := req.ValidateClientSide()
+			err, ok := req.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidRequestCode,
@@ -274,6 +291,7 @@ var _ = Describe("type Request", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if the request ID is an invalid type", func() {
@@ -282,7 +300,7 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{}`),
 			}
 
-			err := req.ValidateClientSide()
+			err, ok := req.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidRequestCode,
@@ -290,6 +308,7 @@ var _ = Describe("type Request", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if the request ID is not valid JSON", func() {
@@ -298,10 +317,11 @@ var _ = Describe("type Request", func() {
 				ID:      json.RawMessage(`{`),
 			}
 
-			err := req.ValidateClientSide()
+			err, ok := req.ValidateClientSide()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Code()).To(Equal(ParseErrorCode))
 			Expect(err.Unwrap()).To(MatchError("unexpected end of JSON input"))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if the parameters are an invalid type", func() {
@@ -310,7 +330,7 @@ var _ = Describe("type Request", func() {
 				Parameters: json.RawMessage(`123`),
 			}
 
-			err := req.ValidateClientSide()
+			err, ok := req.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidParametersCode,
@@ -318,6 +338,7 @@ var _ = Describe("type Request", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		// See https://github.com/dogmatiq/harpy/issues/13
@@ -328,7 +349,7 @@ var _ = Describe("type Request", func() {
 				Parameters: json.RawMessage(`456`),
 			}
 
-			err := req.ValidateClientSide()
+			err, ok := req.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidParametersCode,
@@ -336,6 +357,7 @@ var _ = Describe("type Request", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 	})
 
@@ -363,10 +385,10 @@ var _ = Describe("type Request", func() {
 			var params any
 			err := req.UnmarshalParameters(&params)
 
-			var jsonErr *Error
-			ok := errors.As(err, &jsonErr)
+			var rpcErr Error
+			ok := errors.As(err, &rpcErr)
 			Expect(ok).To(BeTrue())
-			Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
+			Expect(rpcErr.Code()).To(Equal(InvalidParametersCode))
 		})
 
 		It("returns an error if the parameters contain unknown fields", func() {
@@ -378,10 +400,10 @@ var _ = Describe("type Request", func() {
 			var params struct{}
 			err := req.UnmarshalParameters(&params)
 
-			var jsonErr *Error
-			ok := errors.As(err, &jsonErr)
+			var rpcErr Error
+			ok := errors.As(err, &rpcErr)
 			Expect(ok).To(BeTrue())
-			Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
+			Expect(rpcErr.Code()).To(Equal(InvalidParametersCode))
 		})
 
 		When("the target type implements the Validatable interface", func() {
@@ -409,11 +431,11 @@ var _ = Describe("type Request", func() {
 				}
 				err := req.UnmarshalParameters(&params)
 
-				var jsonErr *Error
-				ok := errors.As(err, &jsonErr)
+				var rpcErr Error
+				ok := errors.As(err, &rpcErr)
 				Expect(ok).To(BeTrue())
-				Expect(jsonErr.Code()).To(Equal(InvalidParametersCode))
-				Expect(jsonErr.Unwrap()).To(MatchError("<error>"))
+				Expect(rpcErr.Code()).To(Equal(InvalidParametersCode))
+				Expect(rpcErr.Unwrap()).To(MatchError("<error>"))
 			})
 		})
 	})
@@ -545,12 +567,11 @@ var _ = Describe("type RequestSet", func() {
 
 			_, err := UnmarshalRequestSet(r)
 
-			var e *Error
-			Expect(err).To(BeAssignableToTypeOf(e))
-
-			e = err.(*Error)
-			Expect(e.Code()).To(Equal(ParseErrorCode))
-			Expect(e.Unwrap()).To(MatchError("unable to parse request: invalid character '}' looking for beginning of value"))
+			var rpcErr Error
+			ok := errors.As(err, &rpcErr)
+			Expect(ok).To(BeTrue())
+			Expect(rpcErr.Code()).To(Equal(ParseErrorCode))
+			Expect(rpcErr.Unwrap()).To(MatchError("unable to parse request: invalid character '}' looking for beginning of value"))
 		})
 
 		It("returns an error if a single request is malformed", func() {
@@ -558,12 +579,11 @@ var _ = Describe("type RequestSet", func() {
 
 			_, err := UnmarshalRequestSet(r)
 
-			var e *Error
-			Expect(err).To(BeAssignableToTypeOf(e))
-
-			e = err.(*Error)
-			Expect(e.Code()).To(Equal(ParseErrorCode))
-			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
+			var rpcErr Error
+			ok := errors.As(err, &rpcErr)
+			Expect(ok).To(BeTrue())
+			Expect(rpcErr.Code()).To(Equal(ParseErrorCode))
+			Expect(rpcErr.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
 		})
 
 		It("returns an error if a request within a batch is malformed", func() {
@@ -571,17 +591,16 @@ var _ = Describe("type RequestSet", func() {
 
 			_, err := UnmarshalRequestSet(r)
 
-			var e *Error
-			Expect(err).To(BeAssignableToTypeOf(e))
-
-			e = err.(*Error)
-			Expect(e.Code()).To(Equal(ParseErrorCode))
-			Expect(e.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
+			var rpcErr Error
+			ok := errors.As(err, &rpcErr)
+			Expect(ok).To(BeTrue())
+			Expect(rpcErr.Code()).To(Equal(ParseErrorCode))
+			Expect(rpcErr.Unwrap()).To(MatchError("unable to parse request: json: cannot unmarshal string into Go value of type harpy.Request"))
 		})
 	})
 
 	Describe("func ValidateServerSide()", func() {
-		It("returns nil if all requests are valid", func() {
+		It("returns true if all requests are valid", func() {
 			rs := RequestSet{
 				Requests: []Request{
 					{Version: "2.0"},
@@ -590,8 +609,11 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.ValidateServerSide()
-			Expect(err).ShouldNot(HaveOccurred())
+			err, ok := rs.ValidateServerSide()
+			if !ok {
+				Expect(err).To(Equal(Error{}))
+				Expect(ok).To(BeTrue())
+			}
 		})
 
 		It("returns an error if any of the requests is invalid", func() {
@@ -603,13 +625,14 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.ValidateServerSide()
+			err, ok := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
 					WithMessage(`request version must be "2.0"`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if a batch contains no requests", func() {
@@ -617,13 +640,14 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.ValidateServerSide()
+			err, ok := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
 					WithMessage(`batches must contain at least one request`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if a non-batch contains no requests", func() {
@@ -631,13 +655,14 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err := rs.ValidateServerSide()
+			err, ok := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
 					WithMessage(`non-batch request sets must contain exactly one request`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if a non-batch contains more than one request", func() {
@@ -649,18 +674,19 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err := rs.ValidateServerSide()
+			err, ok := rs.ValidateServerSide()
 			Expect(err).To(Equal(
 				NewErrorWithReservedCode(
 					InvalidRequestCode,
 					WithMessage(`non-batch request sets must contain exactly one request`),
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 	})
 
 	Describe("func ValidateClientSide()", func() {
-		It("returns nil if all requests are valid", func() {
+		It("returns true if all requests are valid", func() {
 			rs := RequestSet{
 				Requests: []Request{
 					{Version: "2.0"},
@@ -669,8 +695,11 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.ValidateClientSide()
-			Expect(err).ShouldNot(HaveOccurred())
+			err, ok := rs.ValidateClientSide()
+			if !ok {
+				Expect(err).To(Equal(Error{}))
+				Expect(ok).To(BeTrue())
+			}
 		})
 
 		It("returns an error if any of the requests is invalid", func() {
@@ -682,7 +711,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.ValidateClientSide()
+			err, ok := rs.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidRequestCode,
@@ -690,6 +719,7 @@ var _ = Describe("type RequestSet", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if a batch contains no requests", func() {
@@ -697,7 +727,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: true,
 			}
 
-			err := rs.ValidateClientSide()
+			err, ok := rs.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidRequestCode,
@@ -705,6 +735,7 @@ var _ = Describe("type RequestSet", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if a non-batch contains no requests", func() {
@@ -712,7 +743,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err := rs.ValidateClientSide()
+			err, ok := rs.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidRequestCode,
@@ -720,6 +751,7 @@ var _ = Describe("type RequestSet", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 
 		It("returns an error if a non-batch contains more than one request", func() {
@@ -731,7 +763,7 @@ var _ = Describe("type RequestSet", func() {
 				IsBatch: false,
 			}
 
-			err := rs.ValidateClientSide()
+			err, ok := rs.ValidateClientSide()
 			Expect(err).To(Equal(
 				NewClientSideError(
 					InvalidRequestCode,
@@ -739,6 +771,7 @@ var _ = Describe("type RequestSet", func() {
 					nil,
 				),
 			))
+			Expect(ok).To(BeFalse())
 		})
 	})
 })

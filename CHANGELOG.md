@@ -10,6 +10,33 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [Unreleased]
+
+### Changed
+
+- **[BC]** Changed `Error` to use non-pointer receivers (reversion of change in v0.2.0)
+- **[BC]** Added boolean return value to `Request[Set].ValidateServerSide()` and `ValidateClientSide()`
+
+These changes are intended to prevent a subtle and easy to introduce usage
+problem that occurs when using a `nil` pointer to a concrete error type to
+represent a success, as illustrated below:
+
+```go
+// A nil pointer, as was used before this
+// version to represent success.
+var rpcErr *harpy.Error
+
+// A non-nil interface variable, which
+// happens to "contain" a nil pointer.
+var err error = rpcErr
+
+if err != nil {
+    // This branch executes, even though
+    // the original operation was successful
+    fmt.Println("an error occurred")
+}
+```
+
 ## [0.3.0] - 2022-03-25
 
 ### Added

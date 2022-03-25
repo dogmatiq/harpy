@@ -47,7 +47,7 @@ func (c *Client) Call(
 		))
 	}
 
-	if err := req.ValidateClientSide(); err != nil {
+	if err, ok := req.ValidateClientSide(); !ok {
 		panic(fmt.Sprintf(
 			"unable to call JSON-RPC method (%s): %s",
 			method,
@@ -134,7 +134,7 @@ func (c *Client) Notify(
 		))
 	}
 
-	if err := req.ValidateClientSide(); err != nil {
+	if err, ok := req.ValidateClientSide(); !ok {
 		panic(fmt.Sprintf(
 			"unable to send JSON-RPC notification (%s): %s",
 			method,

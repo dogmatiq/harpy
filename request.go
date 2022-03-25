@@ -126,19 +126,19 @@ func (r Request) IsNotification() bool {
 // ValidateServerSide checks that the request conforms to the JSON-RPC
 // specification.
 //
-// If the request is invalid it returns a JSON-RPC error intended to be sent to
-// the caller in an ErrorResponse.
-func (r Request) ValidateServerSide() *Error {
+// If the request is invalid ok is false and err is a JSON-RPC error intended to
+// be sent to the caller in an ErrorResponse.
+func (r Request) ValidateServerSide() (err Error, ok bool) {
 	if r.Version != jsonRPCVersion {
 		return NewErrorWithReservedCode(
 			InvalidRequestCode,
 			WithMessage(`request version must be "2.0"`),
-		)
+		), false
 	}
 
 	if len(r.ID) != 0 {
-		if err := validateRequestID(r.ID); err != nil {
-			return err
+		if err, ok := validateRequestID(r.ID); !ok {
+			return err, false
 		}
 	}
 
@@ -146,36 +146,36 @@ func (r Request) ValidateServerSide() *Error {
 	// unmarshaling them. It is expected that a full unmarshal will be performed
 	// in a handler via the UnmarshalParameters() method.
 	if len(r.Parameters) == 0 {
-		return nil
+		return Error{}, true
 	}
 
 	if bytes.EqualFold(r.Parameters, []byte(`null`)) {
-		return nil
+		return Error{}, true
 	}
 
 	if len(r.Parameters) < 2 || (r.Parameters[0] != '{' && r.Parameters[0] != '[') {
 		return NewErrorWithReservedCode(
 			InvalidParametersCode,
 			WithMessage(`parameters must be an array, an object, or null`),
-		)
+		), false
 	}
 
-	return nil
+	return Error{}, true
 }
 
 // ValidateClientSide checks that the request conforms to the JSON-RPC
 // specification.
 //
 // It is intended to be called before sending the request to a server; if the
-// request is invalid it returns the error that a server would return upon
-// receiving the request set.
-func (r Request) ValidateClientSide() *Error {
-	if err := r.ValidateServerSide(); err != nil {
+// request is invalid ok is false and err is the error that a server would
+// return upon receiving the invalid request.
+func (r Request) ValidateClientSide() (err Error, ok bool) {
+	if err, ok := r.ValidateServerSide(); !ok {
 		err.isServerSide = false
-		return err
+		return err, false
 	}
 
-	return nil
+	return Error{}, true
 }
 
 // UnmarshalParameters is a convenience method for unmarshaling request
@@ -211,24 +211,24 @@ func (r Request) UnmarshalParameters(v any) error {
 // validateRequestID checks that id is a valid request ID according to the
 // JSON-RPC specification.
 //
-// It returns nil if the response is valid.
-func validateRequestID(id json.RawMessage) *Error {
+// It returns true if the response is valid.
+func validateRequestID(id json.RawMessage) (Error, bool) {
 	var value any
 	if err := json.Unmarshal(id, &value); err != nil {
 		return NewErrorWithReservedCode(
 			ParseErrorCode,
 			WithCause(err),
-		)
+		), false
 	}
 
 	if isValidRequestIDType(value) {
-		return nil
+		return Error{}, true
 	}
 
 	return NewErrorWithReservedCode(
 		InvalidRequestCode,
 		WithMessage(`request ID must be a JSON string, number or null`),
-	)
+	), false
 }
 
 // isValidRequestIDType returns true if value's type is one of the allowed
@@ -293,45 +293,45 @@ func UnmarshalRequestSet(r io.Reader) (RequestSet, error) {
 // ValidateServerSide checks that the request set is valid and that the requests
 // within conform to the JSON-RPC specification.
 //
-// If the request set is invalid it returns a JSON-RPC error intended to be sent
-// to the caller in an ErrorResponse.
-func (rs RequestSet) ValidateServerSide() *Error {
+// If the request set is invalid ok is false and err is a JSON-RPC error
+// intended to be sent to the caller in an ErrorResponse.
+func (rs RequestSet) ValidateServerSide() (err Error, ok bool) {
 	if rs.IsBatch {
 		if len(rs.Requests) == 0 {
 			return NewErrorWithReservedCode(
 				InvalidRequestCode,
 				WithMessage("batches must contain at least one request"),
-			)
+			), false
 		}
 	} else if len(rs.Requests) != 1 {
 		return NewErrorWithReservedCode(
 			InvalidRequestCode,
 			WithMessage("non-batch request sets must contain exactly one request"),
-		)
+		), false
 	}
 
 	for _, req := range rs.Requests {
-		if err := req.ValidateServerSide(); err != nil {
-			return err
+		if err, ok := req.ValidateServerSide(); !ok {
+			return err, false
 		}
 	}
 
-	return nil
+	return Error{}, true
 }
 
 // ValidateClientSide checks that the request set is valid and that the requests
 // within conform to the JSON-RPC specification.
 //
 // It is intended to be called before sending the request set to a server; if
-// the request set is invalid it returns the error that a server would return
-// upon receiving the request set.
-func (rs RequestSet) ValidateClientSide() *Error {
-	if err := rs.ValidateServerSide(); err != nil {
+// the request is invalid ok is false and err is the error that a server would
+// return upon receiving the invalid request set.
+func (rs RequestSet) ValidateClientSide() (err Error, ok bool) {
+	if err, ok := rs.ValidateServerSide(); !ok {
 		err.isServerSide = false
-		return err
+		return err, false
 	}
 
-	return nil
+	return Error{}, true
 }
 
 // unmarshalSingleRequest unmarshals a non-batch JSON-RPC request set.

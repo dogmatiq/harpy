@@ -2,6 +2,7 @@ package httptransport_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -82,15 +83,14 @@ var _ = Describe("type Client", func() {
 			Expect(err).Should(HaveOccurred())
 			Expect(result).To(BeNil())
 
-			var rpcErr *harpy.Error
-			Expect(err).To(BeAssignableToTypeOf(rpcErr))
-
-			rpcErr = err.(*harpy.Error)
+			var rpcErr harpy.Error
+			ok := errors.As(err, &rpcErr)
+			Expect(ok).To(BeTrue())
 			Expect(rpcErr.Code()).To(BeNumerically("==", 123))
 			Expect(rpcErr.Message()).To(Equal("<message>"))
 
 			var data []int
-			ok, err := rpcErr.UnmarshalData(&data)
+			ok, err = rpcErr.UnmarshalData(&data)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(data).To(Equal(params))
@@ -314,15 +314,14 @@ var _ = Describe("type Client", func() {
 			err := client.Notify(ctx, "<method>", []any{})
 			Expect(err).Should(HaveOccurred())
 
-			var rpcErr *harpy.Error
-			Expect(err).To(BeAssignableToTypeOf(rpcErr))
-
-			rpcErr = err.(*harpy.Error)
+			var rpcErr harpy.Error
+			ok := errors.As(err, &rpcErr)
+			Expect(ok).To(BeTrue())
 			Expect(rpcErr.Code()).To(BeNumerically("==", 123))
 			Expect(rpcErr.Message()).To(Equal("<message>"))
 
 			var data []int
-			ok, err := rpcErr.UnmarshalData(&data)
+			ok, err = rpcErr.UnmarshalData(&data)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(data).To(Equal([]int{1, 2, 3}))
