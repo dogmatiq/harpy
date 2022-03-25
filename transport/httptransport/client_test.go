@@ -29,33 +29,23 @@ var _ = Describe("type Client", func() {
 
 		handler = &Handler{
 			Exchanger: harpy.NewRouter(
-				harpy.WithUntypedRoute(
+				harpy.WithRoute(
 					"echo",
-					func(
-						_ context.Context,
-						req harpy.Request,
-					) (any, error) {
-						var params any
-						err := req.UnmarshalParameters(&params)
-						return params, err
+					func(_ context.Context, params any) (any, error) {
+						return params, nil
 					},
 				),
-				harpy.WithUntypedRoute(
+				harpy.WithRoute(
 					"error",
-					func(
-						_ context.Context,
-						req harpy.Request,
-					) (any, error) {
-						var params any
-						if err := req.UnmarshalParameters(&params); err != nil {
-							return nil, err
-						}
-						return nil, harpy.NewError(
-							123,
-							harpy.WithMessage("<message>"),
-							harpy.WithData(params),
-						)
-					},
+					harpy.NoResult(
+						func(_ context.Context, params any) error {
+							return harpy.NewError(
+								123,
+								harpy.WithMessage("<message>"),
+								harpy.WithData(params),
+							)
+						},
+					),
 				),
 			),
 		}
@@ -285,17 +275,9 @@ var _ = Describe("type Client", func() {
 			called := false
 			handler = &Handler{
 				Exchanger: harpy.NewRouter(
-					harpy.WithUntypedRoute(
+					harpy.WithRoute(
 						"echo",
-						func(
-							_ context.Context,
-							req harpy.Request,
-						) (any, error) {
-							var params []int
-							if err := req.UnmarshalParameters(&params); err != nil {
-								return nil, err
-							}
-
+						func(_ context.Context, params []int) (any, error) {
 							Expect(params).To(Equal([]int{1, 2, 3}))
 							called = true
 
