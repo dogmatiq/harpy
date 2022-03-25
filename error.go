@@ -14,11 +14,9 @@ type Error struct {
 	// message is the user-defined error message, if any.
 	message string
 
-	// dataValue and dataJSON are the Go value and JSON representations of the
-	// user-defined error value that is attached to the error, if any.
-	m         sync.Mutex
-	dataValue any
-	dataJSON  json.RawMessage
+	// data is the user-defined error value that is attached to the error, if
+	// any.
+	data errorData
 
 	// isServerSide indicates whether or not this error was created within a
 	// Harpy JSON-RPC server and is intended to be delivered to the caller.
@@ -86,12 +84,17 @@ func NewClientSideError(
 	message string,
 	data json.RawMessage,
 ) *Error {
-	return &Error{
+	err := &Error{
 		code:         code,
 		message:      message,
-		dataJSON:     data,
 		isServerSide: false,
 	}
+
+	if data != nil {
+		err.data = jsonErrorData(data)
+	}
+
+	return err
 }
 
 // MethodNotFound returns an error that indicates the requested method does not
@@ -125,23 +128,12 @@ func (e *Error) Message() string {
 //
 // ok is false if there is no user-defined data associated with the error.
 func (e *Error) MarshalData() (_ json.RawMessage, ok bool, _ error) {
-	e.m.Lock()
-	defer e.m.Unlock()
-
-	if e.dataJSON == nil {
-		if e.dataValue == nil {
-			return nil, false, nil
-		}
-
-		d, err := json.Marshal(e.dataValue)
-		if err != nil {
-			return nil, false, err
-		}
-
-		e.dataJSON = d
+	if e.data == nil {
+		return nil, false, nil
 	}
 
-	return e.dataJSON, true, nil
+	data, err := e.data.Marshal()
+	return data, true, err
 }
 
 // UnmarshalData unmarshals the user-defined data into v.
@@ -206,6 +198,37 @@ func WithMessage(format string, values ...any) ErrorOption {
 // object in the JSON-RPC response.
 func WithData(data any) ErrorOption {
 	return func(e *Error) {
-		e.dataValue = data
+		e.data = &inMemoryErrorData{value: data}
 	}
+}
+
+// errorData is an interface for user-defined error data values.
+type errorData interface {
+	Marshal() (json.RawMessage, error)
+}
+
+// jsonErrorData is an implementation of errorData that contains a pre-marshaled
+// JSON representation of the error data.
+type jsonErrorData json.RawMessage
+
+func (e jsonErrorData) Marshal() (json.RawMessage, error) {
+	return json.RawMessage(e), nil
+}
+
+// inMemoryErrorData is an implementation of errorData that contains an
+// in-memory Go value representation of the error data.
+type inMemoryErrorData struct {
+	value any
+
+	once sync.Once
+	data json.RawMessage
+	err  error
+}
+
+func (e *inMemoryErrorData) Marshal() (json.RawMessage, error) {
+	e.once.Do(func() {
+		e.data, e.err = json.Marshal(e.value)
+	})
+
+	return e.data, e.err
 }

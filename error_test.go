@@ -26,6 +26,17 @@ var _ = Describe("type Error", func() {
 		})
 	})
 
+	Describe("func NewClientSideError()", func() {
+		It("does not panic if the error code is reserved", func() {
+			err := NewClientSideError(
+				InternalErrorCode,
+				"<message>",
+				nil,
+			)
+			Expect(err.Code()).To(Equal(InternalErrorCode))
+		})
+	})
+
 	Describe("func MethodNotFound()", func() {
 		It("returns an error with the correct error code", func() {
 			e := MethodNotFound()
@@ -74,12 +85,24 @@ var _ = Describe("type Error", func() {
 	})
 
 	Describe("func MarshalData()", func() {
-		It("returns the JSON representation of the user-defined data", func() {
+		It("returns the JSON representation of the user-defined data (server side)", func() {
 			e := NewError(100, WithData("<data>"))
 			data, ok, err := e.MarshalData()
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(data).To(Equal(json.RawMessage(`"\u003cdata\u003e"`)))
+		})
+
+		It("returns the JSON representation of the user-defined data (client side)", func() {
+			e := NewClientSideError(
+				100,
+				"<message>",
+				json.RawMessage(`"<data>"`),
+			)
+			data, ok, err := e.MarshalData()
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(data).To(Equal(json.RawMessage(`"<data>"`)))
 		})
 
 		It("returns false if there is no user-defined data", func() {
@@ -99,6 +122,20 @@ var _ = Describe("type Error", func() {
 	Describe("func UnmarshalData()", func() {
 		It("unmarshals the user-defined data", func() {
 			e := NewError(100, WithData("<data>"))
+
+			var v any
+			ok, err := e.UnmarshalData(&v)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(v).To(Equal("<data>"))
+		})
+
+		It("unmarshals the user-defined data (client side)", func() {
+			e := NewClientSideError(
+				100,
+				"<message>",
+				json.RawMessage(`"<data>"`),
+			)
 
 			var v any
 			ok, err := e.UnmarshalData(&v)
