@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### Added
 
 - Added `NewRouter()`, `WithRoute()` and `NoResult()` to build type-safe routers
+- Added `WithUntypedRoute()` to allow continued use of "untyped" handlers with a router
+
+### Changed
+
+- **[BC]** `Router` is now an opaque type (not a map), and uses a pointer receiver
+- **[BC]** Renamed `Handler` to `UntypedHandler`
 
 ## [0.2.0] - 2022-03-22
 

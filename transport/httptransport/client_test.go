@@ -19,7 +19,6 @@ var _ = Describe("type Client", func() {
 	var (
 		ctx     context.Context
 		cancel  context.CancelFunc
-		router  harpy.Router
 		handler http.Handler
 		server  *httptest.Server
 		client  *Client
@@ -28,33 +27,37 @@ var _ = Describe("type Client", func() {
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 
-		router = harpy.Router{
-			"echo": func(
-				_ context.Context,
-				req harpy.Request,
-			) (any, error) {
-				var params any
-				err := req.UnmarshalParameters(&params)
-				return params, err
-			},
-			"error": func(
-				_ context.Context,
-				req harpy.Request,
-			) (any, error) {
-				var params any
-				if err := req.UnmarshalParameters(&params); err != nil {
-					return nil, err
-				}
-				return nil, harpy.NewError(
-					123,
-					harpy.WithMessage("<message>"),
-					harpy.WithData(params),
-				)
-			},
-		}
-
 		handler = &Handler{
-			Exchanger: router,
+			Exchanger: harpy.NewRouter(
+				harpy.WithUntypedRoute(
+					"echo",
+					func(
+						_ context.Context,
+						req harpy.Request,
+					) (any, error) {
+						var params any
+						err := req.UnmarshalParameters(&params)
+						return params, err
+					},
+				),
+				harpy.WithUntypedRoute(
+					"error",
+					func(
+						_ context.Context,
+						req harpy.Request,
+					) (any, error) {
+						var params any
+						if err := req.UnmarshalParameters(&params); err != nil {
+							return nil, err
+						}
+						return nil, harpy.NewError(
+							123,
+							harpy.WithMessage("<message>"),
+							harpy.WithData(params),
+						)
+					},
+				),
+			),
 		}
 
 		server = httptest.NewServer(
@@ -280,19 +283,26 @@ var _ = Describe("type Client", func() {
 	Describe("func Notify()", func() {
 		It("returns nil on success", func() {
 			called := false
-			router["echo"] = func(
-				_ context.Context,
-				req harpy.Request,
-			) (any, error) {
-				var params []int
-				if err := req.UnmarshalParameters(&params); err != nil {
-					return nil, err
-				}
+			handler = &Handler{
+				Exchanger: harpy.NewRouter(
+					harpy.WithUntypedRoute(
+						"echo",
+						func(
+							_ context.Context,
+							req harpy.Request,
+						) (any, error) {
+							var params []int
+							if err := req.UnmarshalParameters(&params); err != nil {
+								return nil, err
+							}
 
-				Expect(params).To(Equal([]int{1, 2, 3}))
-				called = true
+							Expect(params).To(Equal([]int{1, 2, 3}))
+							called = true
 
-				return nil, nil
+							return nil, nil
+						},
+					),
+				),
 			}
 
 			params := []int{1, 2, 3}

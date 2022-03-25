@@ -12,7 +12,7 @@ import (
 var _ = Describe("type Router", func() {
 	var (
 		request Request
-		router  Router
+		router  *Router
 	)
 
 	BeforeEach(func() {
@@ -22,12 +22,10 @@ var _ = Describe("type Router", func() {
 			Method:     "<method>",
 			Parameters: json.RawMessage(`[1, 2, 3]`),
 		}
-
-		router = Router{}
 	})
 
 	Describe("func NewRouter()", func() {
-		It("unmarshals parameters based on the type in the route", func() {
+		It("unmarshals parameters based on the type in the route (via WithRoute())", func() {
 			called := false
 
 			router = NewRouter(
@@ -45,7 +43,7 @@ var _ = Describe("type Router", func() {
 			Expect(called).To(BeTrue())
 		})
 
-		It("allows calls to handlers that don't return a result", func() {
+		It("allows calls to handlers that don't return a result (via NoResult())", func() {
 			called := false
 
 			router = NewRouter(
@@ -116,14 +114,19 @@ var _ = Describe("type Router", func() {
 			It("calls the associated handler", func() {
 				called := false
 
-				router["<method>"] = func(
-					_ context.Context,
-					req Request,
-				) (any, error) {
-					called = true
-					Expect(req).To(Equal(req))
-					return nil, nil
-				}
+				router = NewRouter(
+					WithUntypedRoute(
+						"<method>",
+						func(
+							_ context.Context,
+							req Request,
+						) (any, error) {
+							called = true
+							Expect(req).To(Equal(req))
+							return nil, nil
+						},
+					),
+				)
 
 				router.Call(context.Background(), request)
 				Expect(called).To(BeTrue())
@@ -134,13 +137,17 @@ var _ = Describe("type Router", func() {
 
 				BeforeEach(func() {
 					result = 456
-
-					router["<method>"] = func(
-						context.Context,
-						Request,
-					) (any, error) {
-						return result, nil
-					}
+					router = NewRouter(
+						WithUntypedRoute(
+							"<method>",
+							func(
+								context.Context,
+								Request,
+							) (any, error) {
+								return result, nil
+							},
+						),
+					)
 				})
 
 				It("returns a success response that contains the marshaled result", func() {
@@ -159,12 +166,17 @@ var _ = Describe("type Router", func() {
 				BeforeEach(func() {
 					err = NewError(789, WithMessage("<error>"))
 
-					router["<method>"] = func(
-						context.Context,
-						Request,
-					) (any, error) {
-						return nil, err
-					}
+					router = NewRouter(
+						WithUntypedRoute(
+							"<method>",
+							func(
+								context.Context,
+								Request,
+							) (any, error) {
+								return nil, err
+							},
+						),
+					)
 				})
 
 				It("returns an error response", func() {
@@ -182,6 +194,10 @@ var _ = Describe("type Router", func() {
 		})
 
 		When("there is no route for the method", func() {
+			BeforeEach(func() {
+				router = NewRouter()
+			})
+
 			It("returns an error response", func() {
 				res := router.Call(context.Background(), request)
 				Expect(res).To(Equal(ErrorResponse{
@@ -205,14 +221,19 @@ var _ = Describe("type Router", func() {
 			It("calls the associated handler", func() {
 				called := false
 
-				router["<method>"] = func(
-					_ context.Context,
-					req Request,
-				) (any, error) {
-					called = true
-					Expect(req).To(Equal(req))
-					return nil, nil
-				}
+				router = NewRouter(
+					WithUntypedRoute(
+						"<method>",
+						func(
+							_ context.Context,
+							req Request,
+						) (any, error) {
+							called = true
+							Expect(req).To(Equal(req))
+							return nil, nil
+						},
+					),
+				)
 
 				router.Notify(context.Background(), request)
 				Expect(called).To(BeTrue())
@@ -220,6 +241,10 @@ var _ = Describe("type Router", func() {
 		})
 
 		When("there is no route for the method", func() {
+			BeforeEach(func() {
+				router = NewRouter()
+			})
+
 			It("ignores the request", func() {
 				Expect(func() {
 					router.Notify(context.Background(), request)
