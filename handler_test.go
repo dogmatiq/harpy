@@ -26,6 +26,91 @@ var _ = Describe("type Router", func() {
 		router = Router{}
 	})
 
+	Describe("func NewRouter()", func() {
+		It("unmarshals parameters based on the type in the route", func() {
+			called := false
+
+			router = NewRouter(
+				WithRoute(
+					"<method>",
+					func(ctx context.Context, params []int) (any, error) {
+						called = true
+						Expect(params).To(Equal([]int{1, 2, 3}))
+						return nil, nil
+					},
+				),
+			)
+
+			router.Call(context.Background(), request)
+			Expect(called).To(BeTrue())
+		})
+
+		It("allows calls to handlers that don't return a result", func() {
+			called := false
+
+			router = NewRouter(
+				WithRoute(
+					"<method>",
+					NoResult(func(ctx context.Context, params []int) error {
+						called = true
+						Expect(params).To(Equal([]int{1, 2, 3}))
+						return nil
+					}),
+				),
+			)
+
+			router.Call(context.Background(), request)
+			Expect(called).To(BeTrue())
+		})
+
+		It("returns an error response if the parameters can not be unpacked", func() {
+			router = NewRouter(
+				WithRoute(
+					"<method>",
+					func(ctx context.Context, params []string) (any, error) {
+						panic("unexpected call")
+					},
+				),
+			)
+
+			res := router.Call(context.Background(), request)
+
+			var errorRes ErrorResponse
+			Expect(res).To(BeAssignableToTypeOf(errorRes))
+
+			errorRes = res.(ErrorResponse)
+			errorRes.ServerError = nil // remove for comparison
+
+			Expect(errorRes).To(Equal(ErrorResponse{
+				Version:   `2.0`,
+				RequestID: json.RawMessage(`123`),
+				Error: ErrorInfo{
+					Code:    InvalidParametersCode,
+					Message: "json: cannot unmarshal number into Go value of type string",
+				},
+			}))
+		})
+
+		It("panics if two routes refer to the same method", func() {
+			Expect(func() {
+				NewRouter(
+					WithRoute(
+						"<method>",
+						func(context.Context, []int) (any, error) {
+							panic("not implemented")
+						},
+					),
+					WithRoute(
+						"<method>",
+						func(context.Context, []int) (any, error) {
+							panic("not implemented")
+						},
+					),
+				)
+			}).To(PanicWith("duplicate route for '<method>' method"))
+		})
+	})
+
 	Describe("func Call()", func() {
 		When("there is a route for the method", func() {
 			It("calls the associated handler", func() {

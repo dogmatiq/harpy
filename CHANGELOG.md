@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [Unreleased]
+
+### Added
+
+- Added `NewRouter()`, `WithRoute()` and `NoResult()` to build type-safe routers
+
 ## [0.2.0] - 2022-03-22
 
 ### Added
