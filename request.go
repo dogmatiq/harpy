@@ -65,9 +65,9 @@ type Request struct {
 // The returned request is not necessarily valid; it should be validated by
 // calling Request.ValidateClientSide() before sending to a server.
 func NewCallRequest(
-	id interface{},
+	id any,
 	method string,
-	params interface{},
+	params any,
 ) (Request, error) {
 	data, err := json.Marshal(id)
 	if err != nil {
@@ -90,7 +90,7 @@ func NewCallRequest(
 // calling Request.ValidateClientSide() before sending to a server.
 func NewNotifyRequest(
 	method string,
-	params interface{},
+	params any,
 ) (Request, error) {
 	return newRequest(nil, method, params)
 }
@@ -102,7 +102,7 @@ func NewNotifyRequest(
 func newRequest(
 	id json.RawMessage,
 	method string,
-	params interface{},
+	params any,
 ) (Request, error) {
 	data, err := json.Marshal(params)
 	if err != nil {
@@ -187,7 +187,7 @@ func (r Request) ValidateClientSide() *Error {
 // If v implements the Validatable interface, it calls v.Validate() after
 // unmarshaling successfully. If validation fails it wraps the validation error
 // in the appropriate native JSON-RPC error.
-func (r Request) UnmarshalParameters(v interface{}) error {
+func (r Request) UnmarshalParameters(v any) error {
 	dec := json.NewDecoder(bytes.NewReader(r.Parameters))
 	dec.DisallowUnknownFields()
 
@@ -213,7 +213,7 @@ func (r Request) UnmarshalParameters(v interface{}) error {
 //
 // It returns nil if the response is valid.
 func validateRequestID(id json.RawMessage) *Error {
-	var value interface{}
+	var value any
 	if err := json.Unmarshal(id, &value); err != nil {
 		return NewErrorWithReservedCode(
 			ParseErrorCode,
@@ -236,7 +236,7 @@ func validateRequestID(id json.RawMessage) *Error {
 //
 // It only allows the types used by json.Unmarshal(), it does not allow all
 // integer/floating-point types.
-func isValidRequestIDType(value interface{}) bool {
+func isValidRequestIDType(value any) bool {
 	switch value.(type) {
 	case string, float64, nil:
 		return true
@@ -364,7 +364,7 @@ func unmarshalBatchRequest(r *bufio.Reader) (RequestSet, error) {
 
 // unmarshalJSONForRequest unmarshals JSON content from r into v. If the JSON
 // cannot be parsed it returns a JSON-RPC error with the "parse error" code.
-func unmarshalJSONForRequest(r io.Reader, v interface{}) error {
+func unmarshalJSONForRequest(r io.Reader, v any) error {
 	err := unmarshalJSON(r, v)
 
 	if isJSONError(err) {

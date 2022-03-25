@@ -32,16 +32,16 @@ var _ = Describe("type Client", func() {
 			"echo": func(
 				_ context.Context,
 				req harpy.Request,
-			) (interface{}, error) {
-				var params interface{}
+			) (any, error) {
+				var params any
 				err := req.UnmarshalParameters(&params)
 				return params, err
 			},
 			"error": func(
 				_ context.Context,
 				req harpy.Request,
-			) (interface{}, error) {
-				var params interface{}
+			) (any, error) {
+				var params any
 				if err := req.UnmarshalParameters(&params); err != nil {
 					return nil, err
 				}
@@ -84,7 +84,7 @@ var _ = Describe("type Client", func() {
 
 		It("returns the JSON-RPC error produced by the server", func() {
 			params := []int{1, 2, 3}
-			var result interface{}
+			var result any
 			err := client.Call(ctx, "error", params, &result)
 			Expect(err).Should(HaveOccurred())
 			Expect(result).To(BeNil())
@@ -129,7 +129,7 @@ var _ = Describe("type Client", func() {
 
 		It("panics if the JSON-RPC request can not be built", func() {
 			Expect(func() {
-				var result interface{}
+				var result any
 				client.Call(
 					ctx,
 					"<method>",
@@ -143,7 +143,7 @@ var _ = Describe("type Client", func() {
 
 		It("panics if the JSON-RPC request can not be validated", func() {
 			Expect(func() {
-				var result interface{}
+				var result any
 				client.Call(
 					ctx,
 					"<method>",
@@ -157,7 +157,7 @@ var _ = Describe("type Client", func() {
 
 		DescribeTable(
 			"it panics if the result variable is not a pointer",
-			func(result interface{}) {
+			func(result any) {
 				Expect(func() {
 					client.Call(
 						ctx,
@@ -283,7 +283,7 @@ var _ = Describe("type Client", func() {
 			router["echo"] = func(
 				_ context.Context,
 				req harpy.Request,
-			) (interface{}, error) {
+			) (any, error) {
 				var params []int
 				if err := req.UnmarshalParameters(&params); err != nil {
 					return nil, err
@@ -319,7 +319,7 @@ var _ = Describe("type Client", func() {
 					}`))
 			})
 
-			err := client.Notify(ctx, "<method>", []interface{}{})
+			err := client.Notify(ctx, "<method>", []any{})
 			Expect(err).Should(HaveOccurred())
 
 			var rpcErr *harpy.Error

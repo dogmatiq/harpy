@@ -139,7 +139,7 @@ var _ = Describe("type SuccessResponse", func() {
 				RequestID: json.RawMessage(`123`),
 			}
 
-			var id interface{}
+			var id any
 			err := res.UnmarshalRequestID(&id)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(id).To(BeNumerically("==", 123))
@@ -342,7 +342,7 @@ var _ = Describe("type ErrorResponse", func() {
 				RequestID: json.RawMessage(`123`),
 			}
 
-			var id interface{}
+			var id any
 			err := res.UnmarshalRequestID(&id)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(id).To(BeNumerically("==", 123))

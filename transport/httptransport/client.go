@@ -31,8 +31,7 @@ type Client struct {
 func (c *Client) Call(
 	ctx context.Context,
 	method string,
-	params interface{},
-	result interface{},
+	params, result any,
 ) error {
 	requestID := atomic.AddUint32(&c.prevID, 1)
 	req, err := harpy.NewCallRequest(
@@ -121,7 +120,7 @@ func (c *Client) Call(
 func (c *Client) Notify(
 	ctx context.Context,
 	method string,
-	params interface{},
+	params any,
 ) error {
 	req, err := harpy.NewNotifyRequest(
 		method,
@@ -173,7 +172,7 @@ func (c *Client) Notify(
 	}
 
 	if res, ok := res.(harpy.ErrorResponse); ok {
-		var requestIDInResponse interface{}
+		var requestIDInResponse any
 		if err := res.UnmarshalRequestID(&requestIDInResponse); err != nil || requestIDInResponse != nil {
 			return fmt.Errorf(
 				"unable to process JSON-RPC response (%s): request ID in response is expected to be null",
@@ -255,7 +254,7 @@ func (c *Client) postSingleRequest(
 
 // validateResultParameter returns true if r is a valid variable into which a
 // JSON-RPC result value can be written.
-func validateResultParameter(v interface{}) bool {
+func validateResultParameter(v any) bool {
 	if v == nil {
 		return false
 	}

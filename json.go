@@ -27,7 +27,7 @@ func isJSONError(err error) bool {
 
 // unmarshalJSON unmarshals JSON content from r into v. The main reason for this
 // function is to disallow unknown fields.
-func unmarshalJSON(r io.Reader, v interface{}) error {
+func unmarshalJSON(r io.Reader, v any) error {
 	dec := json.NewDecoder(r)
 	dec.DisallowUnknownFields()
 

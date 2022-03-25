@@ -100,7 +100,7 @@ var _ = Describe("type Error", func() {
 		It("unmarshals the user-defined data", func() {
 			e := NewError(100, WithData("<data>"))
 
-			var v interface{}
+			var v any
 			ok, err := e.UnmarshalData(&v)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(ok).To(BeTrue())

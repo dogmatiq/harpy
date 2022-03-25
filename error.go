@@ -17,7 +17,7 @@ type Error struct {
 	// dataValue and dataJSON are the Go value and JSON representations of the
 	// user-defined error value that is attached to the error, if any.
 	m         sync.Mutex
-	dataValue interface{}
+	dataValue any
 	dataJSON  json.RawMessage
 
 	// isServerSide indicates whether or not this error was created within a
@@ -147,7 +147,7 @@ func (e *Error) MarshalData() (_ json.RawMessage, ok bool, _ error) {
 // UnmarshalData unmarshals the user-defined data into v.
 //
 // ok is false if there is no user-defined data associated with the error.
-func (e *Error) UnmarshalData(v interface{}) (ok bool, _ error) {
+func (e *Error) UnmarshalData(v any) (ok bool, _ error) {
 	data, ok, err := e.MarshalData()
 	if !ok || err != nil {
 		return false, err
@@ -194,7 +194,7 @@ func WithCause(c error) ErrorOption {
 //
 // This message should be used to provide additional information that can help
 // diagnose the error.
-func WithMessage(format string, values ...interface{}) ErrorOption {
+func WithMessage(format string, values ...any) ErrorOption {
 	return func(e *Error) {
 		e.message = fmt.Sprintf(format, values...)
 	}
@@ -204,7 +204,7 @@ func WithMessage(format string, values ...interface{}) ErrorOption {
 //
 // The data is provided to the RPC caller via the "data" field of the error
 // object in the JSON-RPC response.
-func WithData(data interface{}) ErrorOption {
+func WithData(data any) ErrorOption {
 	return func(e *Error) {
 		e.dataValue = data
 	}

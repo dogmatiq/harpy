@@ -33,7 +33,7 @@ var _ = Describe("type Request", func() {
 
 		DescribeTable(
 			"encodes valid request ID values",
-			func(id interface{}, expect json.RawMessage) {
+			func(id any, expect json.RawMessage) {
 				req, err := NewCallRequest(
 					id,
 					"<method>",
@@ -360,7 +360,7 @@ var _ = Describe("type Request", func() {
 				Parameters: []byte(`]`),
 			}
 
-			var params interface{}
+			var params any
 			err := req.UnmarshalParameters(&params)
 
 			var jsonErr *Error

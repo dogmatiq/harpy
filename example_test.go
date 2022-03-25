@@ -36,7 +36,7 @@ type KeyValueServer struct {
 //
 // It returns an application-defined error if there is no value associated with
 // this key.
-func (s *KeyValueServer) Get(_ context.Context, req harpy.Request) (interface{}, error) {
+func (s *KeyValueServer) Get(_ context.Context, req harpy.Request) (any, error) {
 	var params struct {
 		Key string `json:"key"`
 	}
@@ -56,7 +56,7 @@ func (s *KeyValueServer) Get(_ context.Context, req harpy.Request) (interface{},
 }
 
 // Set associates a value with a key.
-func (s *KeyValueServer) Set(_ context.Context, req harpy.Request) (interface{}, error) {
+func (s *KeyValueServer) Set(_ context.Context, req harpy.Request) (any, error) {
 	var params struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`

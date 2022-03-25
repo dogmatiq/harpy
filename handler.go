@@ -13,7 +13,7 @@ import (
 //
 // If req is a notification (that is, it does not have a request ID) res is
 // always ignored.
-type Handler func(ctx context.Context, req Request) (res interface{}, err error)
+type Handler func(ctx context.Context, req Request) (res any, err error)
 
 // Router is a Exchanger that dispatches to different handlers based on the
 // JSON-RPC method name.

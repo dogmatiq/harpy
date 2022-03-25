@@ -18,7 +18,7 @@ type Response interface {
 	Validate() error
 
 	// UnmarshalRequestID unmarshals the request ID in the response into v.
-	UnmarshalRequestID(v interface{}) error
+	UnmarshalRequestID(v any) error
 
 	isResponse()
 }
@@ -41,7 +41,7 @@ type SuccessResponse struct {
 // NewSuccessResponse returns a new SuccessResponse containing the given result.
 //
 // If the result can not be marshaled an ErrorResponse is returned instead.
-func NewSuccessResponse(requestID json.RawMessage, result interface{}) Response {
+func NewSuccessResponse(requestID json.RawMessage, result any) Response {
 	res := SuccessResponse{
 		Version:   jsonRPCVersion,
 		RequestID: requestID,
@@ -81,7 +81,7 @@ func (r SuccessResponse) Validate() error {
 }
 
 // UnmarshalRequestID unmarshals the request ID in the response into v.
-func (r SuccessResponse) UnmarshalRequestID(v interface{}) error {
+func (r SuccessResponse) UnmarshalRequestID(v any) error {
 	return json.Unmarshal(r.RequestID, v)
 }
 
@@ -192,7 +192,7 @@ func (r ErrorResponse) Validate() error {
 }
 
 // UnmarshalRequestID unmarshals the request ID in the response into v.
-func (r ErrorResponse) UnmarshalRequestID(v interface{}) error {
+func (r ErrorResponse) UnmarshalRequestID(v any) error {
 	return json.Unmarshal(r.RequestID, v)
 }
 
@@ -204,7 +204,7 @@ func (ErrorResponse) isResponse() {}
 // Unlike validateRequestID() it does not allow the id to be absent altogether.
 func validateRequestIDInResponse(id json.RawMessage) error {
 	if len(id) > 0 {
-		var value interface{}
+		var value any
 		if err := json.Unmarshal(id, &value); err != nil {
 			return err
 		}
@@ -352,7 +352,7 @@ func unmarshalBatchResponse(r *bufio.Reader) (ResponseSet, error) {
 }
 
 // unmarshalJSONForResponse unmarshals JSON content from r into v.
-func unmarshalJSONForResponse(r io.Reader, v interface{}) error {
+func unmarshalJSONForResponse(r io.Reader, v any) error {
 	err := unmarshalJSON(r, v)
 
 	if isJSONError(err) {

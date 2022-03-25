@@ -34,7 +34,7 @@ var _ = Describe("type Router", func() {
 				router["<method>"] = func(
 					_ context.Context,
 					req Request,
-				) (interface{}, error) {
+				) (any, error) {
 					called = true
 					Expect(req).To(Equal(req))
 					return nil, nil
@@ -45,7 +45,7 @@ var _ = Describe("type Router", func() {
 			})
 
 			When("the handler succeeds", func() {
-				var result interface{}
+				var result any
 
 				BeforeEach(func() {
 					result = 456
@@ -53,7 +53,7 @@ var _ = Describe("type Router", func() {
 					router["<method>"] = func(
 						context.Context,
 						Request,
-					) (interface{}, error) {
+					) (any, error) {
 						return result, nil
 					}
 				})
@@ -77,7 +77,7 @@ var _ = Describe("type Router", func() {
 					router["<method>"] = func(
 						context.Context,
 						Request,
-					) (interface{}, error) {
+					) (any, error) {
 						return nil, err
 					}
 				})
@@ -123,7 +123,7 @@ var _ = Describe("type Router", func() {
 				router["<method>"] = func(
 					_ context.Context,
 					req Request,
-				) (interface{}, error) {
+				) (any, error) {
 					called = true
 					Expect(req).To(Equal(req))
 					return nil, nil
