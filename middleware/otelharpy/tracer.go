@@ -9,7 +9,6 @@ import (
 	"github.com/dogmatiq/harpy/internal/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -20,11 +19,22 @@ import (
 // It adheres to the OpenTelemetry RPC semantic conventions as specified in
 // https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/rpc.md.
 type Tracer struct {
+	// Next is the next exchanger in the middleware stack.
+	Next harpy.Exchanger
+
+	// TracerProvider is the OpenTelemetry TracerProvider to use for creating
+	// spans.
 	TracerProvider trace.TracerProvider
-	Propagator     propagation.TextMapPropagator
-	PackageName    string
-	ServiceName    string
-	Next           harpy.Exchanger
+
+	// PackageName is an application specific package name to use in the span
+	// name and attributes. It may be empty, in which case it is omitted from
+	// the span.
+	PackageName string
+
+	// ServiceName is an application specific service name to use in the span
+	// name and attributes. It may be empty, in which case it is omitted from
+	// the span.
+	ServiceName string
 
 	once           sync.Once
 	tracer         trace.Tracer
