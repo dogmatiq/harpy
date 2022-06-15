@@ -6,14 +6,12 @@ import "runtime/debug"
 var Version = "0.0.0-dev"
 
 func init() {
-	info, ok := debug.ReadBuildInfo()
-	if ok {
-		return
-	}
-
-	for _, dep := range info.Deps {
-		if dep.Path == "github.com/dogmatiq/harpy" {
-			Version = dep.Version
+	// Look through the binary's dependencies to find the current Harpy version.
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, dep := range info.Deps {
+			if dep.Path == "github.com/dogmatiq/harpy" {
+				Version = dep.Version
+			}
 		}
 	}
 }
