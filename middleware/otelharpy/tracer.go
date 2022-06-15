@@ -1,0 +1,151 @@
+package otelharpy
+
+import (
+	"context"
+	"strings"
+	"sync"
+
+	"github.com/dogmatiq/harpy"
+	"github.com/dogmatiq/harpy/internal/version"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
+	"go.opentelemetry.io/otel/trace"
+)
+
+// Tracer is an implementation of harpy.Exchanger that provides OpenTelemetry
+// tracing for each JSON-RPC request.
+//
+// It adheres to the OpenTelemetry RPC semantic conventions as specified in
+// https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/rpc.md.
+type Tracer struct {
+	TracerProvider trace.TracerProvider
+	Propagator     propagation.TextMapPropagator
+	PackageName    string
+	ServiceName    string
+	Next           harpy.Exchanger
+
+	once           sync.Once
+	tracer         trace.Tracer
+	spanNamePrefix string
+	attributes     []attribute.KeyValue
+}
+
+// Call handles a call request and returns the response.
+func (t *Tracer) Call(ctx context.Context, req harpy.Request) harpy.Response {
+	ctx, span := t.startSpan(ctx, req)
+	defer span.End()
+
+	res := t.Next.Call(ctx, req)
+
+	if res, ok := res.(harpy.ErrorResponse); ok {
+		if res.ServerError == nil {
+			span.SetStatus(codes.Error, res.Error.Message)
+		} else {
+			span.SetStatus(codes.Error, res.ServerError.Error())
+		}
+
+		span.SetAttributes(
+			semconv.RPCJsonrpcErrorCodeKey.Int(int(res.Error.Code)),
+			semconv.RPCJsonrpcErrorMessageKey.String(res.Error.Message),
+		)
+	}
+
+	return res
+}
+
+// Notify handles a notification request.
+//
+// It invokes the handler associated with the method specified by the request.
+// If no such method has been registered it does nothing.
+func (t *Tracer) Notify(ctx context.Context, req harpy.Request) {
+	ctx, span := t.startSpan(ctx, req)
+	defer span.End()
+
+	t.Next.Notify(ctx, req)
+}
+
+// startSpan starts a new server span to represent the incoming request.
+func (t *Tracer) startSpan(
+	ctx context.Context,
+	req harpy.Request,
+) (context.Context, trace.Span) {
+	t.init()
+
+	attrs := []attribute.KeyValue{
+		semconv.RPCMethodKey.String(req.Method),
+		semconv.RPCJsonrpcVersionKey.String(req.Version),
+	}
+
+	if !req.IsNotification() {
+		attrs = append(
+			attrs,
+			semconv.RPCJsonrpcRequestIDKey.String(sanitizeRequestID(req)),
+		)
+	}
+
+	return t.tracer.Start(
+		ctx,
+		t.spanNamePrefix+req.Method,
+		trace.WithSpanKind(trace.SpanKindServer),
+		trace.WithAttributes(t.attributes...),
+		trace.WithAttributes(attrs...),
+	)
+}
+
+// init initializes the tracer if it has not already been initialized.
+func (t *Tracer) init() {
+	t.once.Do(func() {
+		t.tracer = t.TracerProvider.Tracer(
+			"github.com/dogmatiq/harpy/middleware/otelharpy",
+			trace.WithInstrumentationVersion(version.Version),
+		)
+
+		t.attributes = append(
+			t.attributes,
+			semconv.RPCSystemKey.String("dogmatiq/harpy"),
+		)
+
+		if t.ServiceName != "" {
+			if t.PackageName != "" {
+				t.spanNamePrefix = sanitizeServiceName(t.PackageName) + "."
+			}
+
+			t.spanNamePrefix += sanitizeServiceName(t.ServiceName)
+
+			t.attributes = append(
+				t.attributes,
+				semconv.RPCServiceKey.String(t.spanNamePrefix),
+			)
+
+			t.spanNamePrefix += "/"
+		}
+	})
+}
+
+// sanitizeRequestID returns a request ID suitable for use as a span attribute.
+//
+// As per semconv.RPCJsonrpcRequestIDKey it returns an empty string if the
+// requestID is null.
+func sanitizeRequestID(req harpy.Request) string {
+	requestID := string(req.ID)
+
+	if strings.EqualFold(requestID, "null") {
+		return ""
+	}
+
+	return strings.Trim(requestID, `"`)
+}
+
+// sanitizeServiceName returns a service name (or package) suitable for use in
+// part of span name.
+func sanitizeServiceName(n string) string {
+	return strings.ReplaceAll(n, ".", "-")
+}
+
+// sanitizeMethodName returns an RPC method name suitable for use in part of
+// span name.
+func sanitizeMethodName(n string) string {
+	return strings.ReplaceAll(n, "/", "-")
+}
