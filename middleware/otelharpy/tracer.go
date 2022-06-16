@@ -26,14 +26,13 @@ type Tracer struct {
 	// spans.
 	TracerProvider trace.TracerProvider
 
-	// PackageName is an application specific package name to use in the span
-	// name and attributes. It may be empty, in which case it is omitted from
-	// the span.
-	PackageName string
-
 	// ServiceName is an application specific service name to use in the span
-	// name and attributes. It may be empty, in which case it is omitted from
-	// the span.
+	// name and attributes.
+	//
+	// It may be prefixed with a dot-separated "package name", for example
+	// "myapp.test.EchoService".
+	//
+	// It may be empty, in which case it is omitted from the span.
 	ServiceName string
 
 	once           sync.Once
@@ -60,6 +59,8 @@ func (t *Tracer) Call(ctx context.Context, req harpy.Request) harpy.Response {
 			semconv.RPCJsonrpcErrorCodeKey.Int(int(res.Error.Code)),
 			semconv.RPCJsonrpcErrorMessageKey.String(res.Error.Message),
 		)
+	} else {
+		span.SetStatus(codes.Ok, "")
 	}
 
 	return res
@@ -74,6 +75,7 @@ func (t *Tracer) Notify(ctx context.Context, req harpy.Request) {
 	defer span.End()
 
 	t.Next.Notify(ctx, req)
+	span.SetStatus(codes.Ok, "")
 }
 
 // startSpan starts a new server span to represent the incoming request.
@@ -97,7 +99,7 @@ func (t *Tracer) startSpan(
 
 	return t.tracer.Start(
 		ctx,
-		t.spanNamePrefix+req.Method,
+		t.spanNamePrefix+sanitizeMethodName(req.Method),
 		trace.WithSpanKind(trace.SpanKindServer),
 		trace.WithAttributes(t.attributes...),
 		trace.WithAttributes(attrs...),
@@ -118,18 +120,12 @@ func (t *Tracer) init() {
 		)
 
 		if t.ServiceName != "" {
-			if t.PackageName != "" {
-				t.spanNamePrefix = sanitizeServiceName(t.PackageName) + "."
-			}
-
-			t.spanNamePrefix += sanitizeServiceName(t.ServiceName)
-
 			t.attributes = append(
 				t.attributes,
-				semconv.RPCServiceKey.String(t.spanNamePrefix),
+				semconv.RPCServiceKey.String(t.ServiceName),
 			)
 
-			t.spanNamePrefix += "/"
+			t.spanNamePrefix = t.ServiceName + "/"
 		}
 	})
 }
@@ -146,12 +142,6 @@ func sanitizeRequestID(req harpy.Request) string {
 	}
 
 	return strings.Trim(requestID, `"`)
-}
-
-// sanitizeServiceName returns a service name (or package) suitable for use in
-// part of span name.
-func sanitizeServiceName(n string) string {
-	return strings.ReplaceAll(n, ".", "-")
 }
 
 // sanitizeMethodName returns an RPC method name suitable for use in part of
