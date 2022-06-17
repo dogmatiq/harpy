@@ -18,13 +18,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var _ = Describe("type Tracer", func() {
+var _ = Describe("type Tracing", func() {
 	var (
 		request   harpy.Request
 		response  harpy.Response
 		exchanger *ExchangerStub
 		recorder  *tracetest.SpanRecorder
-		tracer    *Tracer
+		tracing   *Tracing
 	)
 
 	BeforeEach(func() {
@@ -52,7 +52,7 @@ var _ = Describe("type Tracer", func() {
 
 		recorder = tracetest.NewSpanRecorder()
 
-		tracer = &Tracer{
+		tracing = &Tracing{
 			Next: exchanger,
 			TracerProvider: tracesdk.NewTracerProvider(
 				tracesdk.WithSpanProcessor(recorder),
@@ -71,13 +71,13 @@ var _ = Describe("type Tracer", func() {
 				return response
 			}
 
-			res := tracer.Call(context.Background(), request)
+			res := tracing.Call(context.Background(), request)
 			Expect(res).To(Equal(response))
 		})
 
 		When("the call returns a success response", func() {
 			It("records a span", func() {
-				tracer.Call(context.Background(), request)
+				tracing.Call(context.Background(), request)
 
 				spans := recorder.Ended()
 				Expect(spans).To(HaveLen(1))
@@ -118,7 +118,7 @@ var _ = Describe("type Tracer", func() {
 			It("uses an empty request ID attribute if the request ID is null", func() {
 				request.ID = json.RawMessage(`NULL`)
 
-				tracer.Call(context.Background(), request)
+				tracing.Call(context.Background(), request)
 
 				spans := recorder.Ended()
 				Expect(spans).To(HaveLen(1))
@@ -133,7 +133,7 @@ var _ = Describe("type Tracer", func() {
 			It("trims quotes from the request ID attribute when the request ID is a strings", func() {
 				request.ID = json.RawMessage(`"<id>"`)
 
-				tracer.Call(context.Background(), request)
+				tracing.Call(context.Background(), request)
 
 				spans := recorder.Ended()
 				Expect(spans).To(HaveLen(1))
@@ -160,7 +160,7 @@ var _ = Describe("type Tracer", func() {
 			})
 
 			It("includes error information in the span", func() {
-				tracer.Call(context.Background(), request)
+				tracing.Call(context.Background(), request)
 
 				spans := recorder.Ended()
 				Expect(spans).To(HaveLen(1))
@@ -192,7 +192,7 @@ var _ = Describe("type Tracer", func() {
 					},
 				}
 
-				tracer.Call(context.Background(), request)
+				tracing.Call(context.Background(), request)
 
 				spans := recorder.Ended()
 				Expect(spans).To(HaveLen(1))
@@ -225,12 +225,12 @@ var _ = Describe("type Tracer", func() {
 				Expect(req).To(Equal(request))
 			}
 
-			tracer.Notify(context.Background(), request)
+			tracing.Notify(context.Background(), request)
 			Expect(called).To(BeTrue())
 		})
 
 		It("records a span", func() {
-			tracer.Notify(context.Background(), request)
+			tracing.Notify(context.Background(), request)
 
 			spans := recorder.Ended()
 			Expect(spans).To(HaveLen(1))

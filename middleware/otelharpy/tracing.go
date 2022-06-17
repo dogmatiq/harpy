@@ -13,12 +13,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Tracer is an implementation of harpy.Exchanger that provides OpenTelemetry
+// Tracing is an implementation of harpy.Exchanger that provides OpenTelemetry
 // tracing for each JSON-RPC request.
 //
 // It adheres to the OpenTelemetry RPC semantic conventions as specified in
 // https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/rpc.md.
-type Tracer struct {
+type Tracing struct {
 	// Next is the next exchanger in the middleware stack.
 	Next harpy.Exchanger
 
@@ -42,7 +42,7 @@ type Tracer struct {
 }
 
 // Call handles a call request and returns the response.
-func (t *Tracer) Call(ctx context.Context, req harpy.Request) harpy.Response {
+func (t *Tracing) Call(ctx context.Context, req harpy.Request) harpy.Response {
 	ctx, span := t.startSpan(ctx, req)
 	defer span.End()
 
@@ -70,7 +70,7 @@ func (t *Tracer) Call(ctx context.Context, req harpy.Request) harpy.Response {
 //
 // It invokes the handler associated with the method specified by the request.
 // If no such method has been registered it does nothing.
-func (t *Tracer) Notify(ctx context.Context, req harpy.Request) {
+func (t *Tracing) Notify(ctx context.Context, req harpy.Request) {
 	ctx, span := t.startSpan(ctx, req)
 	defer span.End()
 
@@ -79,7 +79,7 @@ func (t *Tracer) Notify(ctx context.Context, req harpy.Request) {
 }
 
 // startSpan starts a new server span to represent the incoming request.
-func (t *Tracer) startSpan(
+func (t *Tracing) startSpan(
 	ctx context.Context,
 	req harpy.Request,
 ) (context.Context, trace.Span) {
@@ -107,7 +107,7 @@ func (t *Tracer) startSpan(
 }
 
 // init initializes the tracer if it has not already been initialized.
-func (t *Tracer) init() {
+func (t *Tracing) init() {
 	t.once.Do(func() {
 		t.tracer = t.TracerProvider.Tracer(
 			"github.com/dogmatiq/harpy/middleware/otelharpy",
