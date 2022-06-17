@@ -49,16 +49,13 @@ func (t *Tracing) Call(ctx context.Context, req harpy.Request) harpy.Response {
 	res := t.Next.Call(ctx, req)
 
 	if res, ok := res.(harpy.ErrorResponse); ok {
+		span.SetAttributes(errorResponseAttributes(res)...)
+
 		if res.ServerError == nil {
 			span.SetStatus(codes.Error, res.Error.Message)
 		} else {
 			span.SetStatus(codes.Error, res.ServerError.Error())
 		}
-
-		span.SetAttributes(
-			semconv.RPCJsonrpcErrorCodeKey.Int(int(res.Error.Code)),
-			semconv.RPCJsonrpcErrorMessageKey.String(res.Error.Message),
-		)
 	} else {
 		span.SetStatus(codes.Ok, "")
 	}
@@ -85,10 +82,7 @@ func (t *Tracing) startSpan(
 ) (context.Context, trace.Span) {
 	t.init()
 
-	attrs := []attribute.KeyValue{
-		semconv.RPCMethodKey.String(req.Method),
-		semconv.RPCJsonrpcVersionKey.String(req.Version),
-	}
+	attrs := requestAttributes(req)
 
 	if !req.IsNotification() {
 		attrs = append(
