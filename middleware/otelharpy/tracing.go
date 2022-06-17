@@ -114,17 +114,9 @@ func (t *Tracing) init() {
 			trace.WithInstrumentationVersion(version.Version),
 		)
 
-		t.attributes = append(
-			t.attributes,
-			semconv.RPCSystemKey.String("dogmatiq/harpy"),
-		)
+		t.attributes = commonAttributes(t.ServiceName)
 
 		if t.ServiceName != "" {
-			t.attributes = append(
-				t.attributes,
-				semconv.RPCServiceKey.String(t.ServiceName),
-			)
-
 			t.spanNamePrefix = t.ServiceName + "/"
 		}
 	})
