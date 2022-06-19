@@ -55,6 +55,7 @@ func (t *Tracing) Call(ctx context.Context, req harpy.Request) harpy.Response {
 			span.SetStatus(codes.Error, res.Error.Message)
 		} else {
 			span.SetStatus(codes.Error, res.ServerError.Error())
+			span.RecordError(res.ServerError)
 		}
 	} else {
 		span.SetStatus(codes.Ok, "")

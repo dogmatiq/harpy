@@ -10,6 +10,7 @@ import (
 	. "github.com/dogmatiq/harpy/middleware/otelharpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
@@ -179,6 +180,16 @@ var _ = Describe("type Tracing", func() {
 						Code:        codes.Error,
 						Description: "<error>",
 					},
+				))
+
+				Expect(span.Events()).To(ConsistOf(
+					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Name": Equal("exception"),
+						"Attributes": ConsistOf(
+							semconv.ExceptionTypeKey.String("*errors.errorString"),
+							semconv.ExceptionMessageKey.String("<error>"),
+						),
+					}),
 				))
 			})
 
