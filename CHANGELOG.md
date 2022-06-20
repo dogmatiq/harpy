@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [Unreleased]
+
+### Added
+
+- Add `otelharpy.Metrics`, which provides OpenTelemetry metrics for JSON-RPC servers
+
 ## [0.6.0] - 2022-06-20
 
 ### Changed
