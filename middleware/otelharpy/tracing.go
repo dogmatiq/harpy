@@ -35,6 +35,13 @@ type Tracing struct {
 	// It may be empty, in which case it is omitted from the span.
 	ServiceName string
 
+	// CreateNewSpan controls whether a new span is created for each request, or
+	// JSON-RPC attributes are added to an existing span.
+	//
+	// By default it is assumed that the transport layer is responsibe for
+	// creating the span, and no new span will be created.
+	CreateNewSpan bool
+
 	once           sync.Once
 	tracer         trace.Tracer
 	spanNamePrefix string
@@ -43,23 +50,28 @@ type Tracing struct {
 
 // Call handles a call request and returns the response.
 func (t *Tracing) Call(ctx context.Context, req harpy.Request) harpy.Response {
-	ctx, span := t.startSpan(ctx, req)
-	defer span.End()
+	var res harpy.Response
 
-	res := t.Next.Call(ctx, req)
+	t.withSpan(
+		ctx,
+		req,
+		func(ctx context.Context, span trace.Span) {
+			res = t.Next.Call(ctx, req)
 
-	if res, ok := res.(harpy.ErrorResponse); ok {
-		span.SetAttributes(errorResponseAttributes(res)...)
+			if res, ok := res.(harpy.ErrorResponse); ok {
+				span.SetAttributes(errorResponseAttributes(res)...)
 
-		if res.ServerError == nil {
-			span.SetStatus(codes.Error, res.Error.Message)
-		} else {
-			span.SetStatus(codes.Error, res.ServerError.Error())
-			span.RecordError(res.ServerError)
-		}
-	} else {
-		span.SetStatus(codes.Ok, "")
-	}
+				if res.ServerError == nil {
+					span.SetStatus(codes.Error, res.Error.Message)
+				} else {
+					span.SetStatus(codes.Error, res.ServerError.Error())
+					span.RecordError(res.ServerError)
+				}
+			} else {
+				span.SetStatus(codes.Ok, "")
+			}
+		},
+	)
 
 	return res
 }
@@ -69,36 +81,49 @@ func (t *Tracing) Call(ctx context.Context, req harpy.Request) harpy.Response {
 // It invokes the handler associated with the method specified by the request.
 // If no such method has been registered it does nothing.
 func (t *Tracing) Notify(ctx context.Context, req harpy.Request) {
-	ctx, span := t.startSpan(ctx, req)
-	defer span.End()
-
-	t.Next.Notify(ctx, req)
-	span.SetStatus(codes.Ok, "")
+	t.withSpan(
+		ctx,
+		req,
+		func(ctx context.Context, span trace.Span) {
+			t.Next.Notify(ctx, req)
+			span.SetStatus(codes.Ok, "")
+		},
+	)
 }
 
-// startSpan starts a new server span to represent the incoming request.
-func (t *Tracing) startSpan(
+// withSpan invokes fn with a tracing span.
+func (t *Tracing) withSpan(
 	ctx context.Context,
 	req harpy.Request,
-) (context.Context, trace.Span) {
+	fn func(context.Context, trace.Span),
+) {
 	t.init()
 
-	attrs := requestAttributes(req)
+	name := t.spanNamePrefix + sanitizeMethodName(req.Method)
+	var span trace.Span
+
+	if t.CreateNewSpan {
+		ctx, span = t.tracer.Start(
+			ctx,
+			name,
+			trace.WithSpanKind(trace.SpanKindServer),
+		)
+		defer span.End()
+	} else {
+		span = trace.SpanFromContext(ctx)
+		span.SetName(name)
+	}
+
+	span.SetAttributes(t.attributes...)
+	span.SetAttributes(requestAttributes(req)...)
 
 	if !req.IsNotification() {
-		attrs = append(
-			attrs,
+		span.SetAttributes(
 			semconv.RPCJsonrpcRequestIDKey.String(sanitizeRequestID(req)),
 		)
 	}
 
-	return t.tracer.Start(
-		ctx,
-		t.spanNamePrefix+sanitizeMethodName(req.Method),
-		trace.WithSpanKind(trace.SpanKindServer),
-		trace.WithAttributes(t.attributes...),
-		trace.WithAttributes(attrs...),
-	)
+	fn(ctx, span)
 }
 
 // init initializes the tracer if it has not already been initialized.

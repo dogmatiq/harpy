@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### Changed
 
 - **[BC]** Rename `otelharpy.Tracer` to `Tracing`
+- **[BC]** `Tracing` now modifies an the existing (rather than creating a new one) by default
 
 ## [0.5.0] - 2022-06-16
 
