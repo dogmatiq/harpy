@@ -8,9 +8,10 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	go.opentelemetry.io/otel v1.8.0
-	go.opentelemetry.io/otel/sdk v1.7.0
+	go.opentelemetry.io/otel/metric v0.31.0
+	go.opentelemetry.io/otel/sdk v1.8.0
 	go.opentelemetry.io/otel/sdk/export/metric v0.28.0
-	go.opentelemetry.io/otel/sdk/metric v0.30.0
+	go.opentelemetry.io/otel/sdk/metric v0.31.0
 	go.opentelemetry.io/otel/trace v1.8.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
@@ -20,7 +21,6 @@ require (
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
-	go.opentelemetry.io/otel/metric v0.30.0
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	golang.org/x/text v0.3.7 // indirect
