@@ -110,8 +110,8 @@ var _ = Describe("type Tracing", func() {
 						},
 					))
 
-					Expect(span.InstrumentationLibrary()).To(Equal(
-						instrumentation.Library{
+					Expect(span.InstrumentationScope()).To(Equal(
+						instrumentation.Scope{
 							Name:    "github.com/dogmatiq/harpy/middleware/otelharpy",
 							Version: "0.0.0-dev",
 						},
@@ -272,8 +272,8 @@ var _ = Describe("type Tracing", func() {
 					},
 				))
 
-				Expect(span.InstrumentationLibrary()).To(Equal(
-					instrumentation.Library{
+				Expect(span.InstrumentationScope()).To(Equal(
+					instrumentation.Scope{
 						Name:    "github.com/dogmatiq/harpy/middleware/otelharpy",
 						Version: "0.0.0-dev",
 					},
