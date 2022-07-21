@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/dogmatiq/dodeca/logging"
+	"go.uber.org/zap"
 )
 
 // ExchangeLogger is an interface for logging JSON-RPC requests, responses and
@@ -79,6 +80,67 @@ func (l DefaultExchangeLogger) LogCall(req Request, res Response) {
 	w.WriteByte(']')
 
 	logging.LogString(l.Target, w.String())
+}
+
+// ZapExchangeLogger is an implementation of ExchangeLogger using zap.Logger.
+type ZapExchangeLogger struct {
+	// Target is the destination for log messages.
+	Target *zap.Logger
+}
+
+// LogError writes an information about an error response that is a result of
+// some problem with the request set as a whole.
+func (l ZapExchangeLogger) LogError(res ErrorResponse) {
+	var w strings.Builder
+	writeErrorResponseDetails(&w, res)
+
+	l.Target.Error(w.String())
+}
+
+// LogWriterError logs about an error that occured when attempting to use a
+// ResponseWriter.
+func (l ZapExchangeLogger) LogWriterError(err error) {
+	var w strings.Builder
+
+	w.WriteString("unable to write JSON-RPC response: ")
+	w.WriteString(err.Error())
+
+	l.Target.Error(w.String())
+}
+
+// LogNotification logs information about a notification request.
+func (l ZapExchangeLogger) LogNotification(req Request) {
+	var w strings.Builder
+
+	w.WriteString("notify ")
+	writeMethod(&w, req.Method)
+	w.WriteString(" [")
+	writeRequestDetails(&w, req)
+	w.WriteByte(']')
+
+	l.Target.Info(w.String())
+}
+
+// LogCall logs information about a call request and its response.
+func (l ZapExchangeLogger) LogCall(req Request, res Response) {
+	var w strings.Builder
+
+	w.WriteString("call ")
+	writeMethod(&w, req.Method)
+	w.WriteString(" [")
+	writeRequestDetails(&w, req)
+	w.WriteString(", ")
+
+	switch res := res.(type) {
+	case SuccessResponse:
+		writeSuccessResponseDetails(&w, res)
+	case ErrorResponse:
+		writeErrorResponseDetails(&w, res)
+	}
+
+	w.WriteByte(']')
+
+	l.Target.Info(w.String())
 }
 
 // writeMethod formats a JSON-RPC method name for display and writes it to w.
