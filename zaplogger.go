@@ -32,7 +32,7 @@ func (l ZapExchangeLogger) LogError(res ErrorResponse) {
 	}
 
 	l.Target.Error(
-		"error in response",
+		"error",
 		fields[:fieldCount]...,
 	)
 }
