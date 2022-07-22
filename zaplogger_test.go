@@ -1,25 +1,27 @@
 package harpy_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 
-	"github.com/dogmatiq/dodeca/logging"
 	"github.com/dogmatiq/harpy"
 	. "github.com/dogmatiq/harpy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var _ = Context("type DefaultExchangeLogger", func() {
+var _ = Context("type ZapExchangeLogger", func() {
 	var (
 		request                       harpy.Request
 		success                       harpy.SuccessResponse
 		nativeError                   harpy.ErrorResponse
 		nativeErrorNonStandardMessage harpy.ErrorResponse
 		nonNativeError                harpy.ErrorResponse
-		buffer                        *logging.BufferedLogger
-		logger                        DefaultExchangeLogger
+		buffer                        bytes.Buffer
+		logger                        ZapExchangeLogger
 	)
 
 	BeforeEach(func() {
@@ -35,47 +37,53 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		nativeErrorNonStandardMessage = harpy.NewErrorResponse(request.ID, MethodNotFound(WithMessage("<message>")))
 		nonNativeError = harpy.NewErrorResponse(request.ID, errors.New("<error>"))
 
-		buffer = &logging.BufferedLogger{
-			CaptureDebug: true,
-		}
+		buffer.Reset()
 
-		logger = DefaultExchangeLogger{
-			Target: buffer,
+		logger = ZapExchangeLogger{
+			Target: zap.New(
+				zapcore.NewCore(
+					zapcore.NewConsoleEncoder(
+						zap.NewDevelopmentEncoderConfig(),
+					),
+					zapcore.AddSync(&buffer),
+					zapcore.DebugLevel,
+				),
+			),
 		}
 	})
 
 	Describe("func LogError()", func() {
 		It("logs details of a native error response", func() {
 			logger.LogError(nativeError)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `error: -32601 method not found`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`error in response	{"error_code": -32601, "error": "method not found"}`,
+				),
+			)
 		})
 
 		It("logs details of a native error response with a non-standard message", func() {
 			logger.LogError(nativeErrorNonStandardMessage)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `error: -32601 method not found, responded with: <message>`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`error in response	{"error_code": -32601, "error": "method not found", "responded_with": "<message>"}`,
+				),
+			)
 		})
 
 		It("logs details of a non-native causal error", func() {
 			logger.LogError(nonNativeError)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `error: -32603 internal server error, caused by: <error>`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`error in response	{"error_code": -32603, "error": "internal server error", "caused_by": "<error>"}`,
+				),
+			)
 		})
 	})
 
@@ -83,122 +91,122 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		It("logs the request information", func() {
 			request.ID = nil
 			logger.LogNotification(request)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `notify method [params: 9 B]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`notify method	{"param_size": 9}`,
+				),
+			)
 		})
 
 		It("quotes empty method names", func() {
 			request.ID = nil
 			request.Method = ""
 			logger.LogNotification(request)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `notify "" [params: 9 B]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`notify ""	{"param_size": 9}`,
+				),
+			)
 		})
 
 		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
 			request.ID = nil
 			request.Method = "<the method>\x00"
 			logger.LogNotification(request)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `notify "<the method>\x00" [params: 9 B]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`notify "<the method>\x00"	{"param_size": 9}`,
+				),
+			)
 		})
 	})
 
 	Describe("func LogCall()", func() {
 		It("logs the request and response information", func() {
 			logger.LogCall(request, success)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `call method [params: 9 B, result: 3 B]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`call method	{"param_size": 9, "result_size": 3}`,
+				),
+			)
 		})
 
 		It("quotes empty method names", func() {
 			request.Method = ""
 			logger.LogCall(request, success)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `call "" [params: 9 B, result: 3 B]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`call ""	{"param_size": 9, "result_size": 3}`,
+				),
+			)
 		})
 
 		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
 			request.Method = "<the method>\x00"
 			logger.LogCall(request, success)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `call "<the method>\x00" [params: 9 B, result: 3 B]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`call "<the method>\x00"	{"param_size": 9, "result_size": 3}`,
+				),
+			)
 		})
 
 		It("logs details of a native error response", func() {
 			logger.LogCall(request, nativeError)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `call method [params: 9 B, error: -32601 method not found]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`call method	{"param_size": 9, "error_code": -32601, "error": "method not found"}`,
+				),
+			)
 		})
 
 		It("logs details of a native error response with a non-standard message", func() {
 			logger.LogCall(request, nativeErrorNonStandardMessage)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `call method [params: 9 B, error: -32601 method not found, responded with: <message>]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`call method	{"param_size": 9, "error_code": -32601, "error": "method not found", "responded_with": "<message>"}`,
+				),
+			)
 		})
 
 		It("logs details of a non-native causal error", func() {
 			logger.LogCall(request, nonNativeError)
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `call method [params: 9 B, error: -32603 internal server error, caused by: <error>]`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`call method	{"param_size": 9, "error_code": -32603, "error": "internal server error", "caused_by": "<error>"}`,
+				),
+			)
 		})
 	})
 
 	Describe("func LogWriterError()", func() {
 		It("logs the error", func() {
 			logger.LogWriterError(errors.New("<error>"))
+			logger.Target.Sync()
 
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `unable to write JSON-RPC response: <error>`,
-					IsDebug: false,
-				},
-			))
+			Expect(buffer.String()).To(
+				ContainSubstring(
+					`unable to write JSON-RPC response	{"error": "<error>"}`,
+				),
+			)
 		})
 	})
 })
