@@ -59,7 +59,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 			Expect(buffer.String()).To(
 				ContainSubstring(
-					`error in response	{"error_code": -32601, "error": "method not found"}`,
+					`error	{"error_code": -32601, "error": "method not found"}`,
 				),
 			)
 		})
@@ -70,7 +70,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 			Expect(buffer.String()).To(
 				ContainSubstring(
-					`error in response	{"error_code": -32601, "error": "method not found", "responded_with": "<message>"}`,
+					`error	{"error_code": -32601, "error": "method not found", "responded_with": "<message>"}`,
 				),
 			)
 		})
@@ -81,7 +81,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 			Expect(buffer.String()).To(
 				ContainSubstring(
-					`error in response	{"error_code": -32603, "error": "internal server error", "caused_by": "<error>"}`,
+					`error	{"error_code": -32603, "error": "internal server error", "caused_by": "<error>"}`,
 				),
 			)
 		})
