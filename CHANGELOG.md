@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.6.2] - 2022-07-27
+
+### Added
+
+- Add `harpy.ZapExchangeLogger`
+
 ## [0.6.1] - 2022-06-21
 
 ### Added
@@ -107,6 +113,7 @@ if err != nil {
 [0.5.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.5.0
 [0.6.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.6.0
 [0.6.1]: https://github.com/dogmatiq/harpy/releases/tag/v0.6.1
+[0.6.2]: https://github.com/dogmatiq/harpy/releases/tag/v0.6.2
 
 <!-- version template
 ## [0.0.1] - YYYY-MM-DD
