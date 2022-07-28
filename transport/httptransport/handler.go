@@ -3,7 +3,6 @@ package httptransport
 import (
 	"net/http"
 
-	"github.com/dogmatiq/dodeca/logging"
 	"github.com/dogmatiq/harpy"
 )
 
@@ -15,22 +14,41 @@ const mediaType = "application/json"
 // transport for a JSON-RPC server.
 type Handler struct {
 	// Exchanger performs JSON-RPC exchanges.
-	Exchanger harpy.Exchanger
+	exchanger harpy.Exchanger
 
-	// Logger is the target for log messages about JSON-RPC requests and
+	// newLogger returns the target for log messages about JSON-RPC requests and
 	// responses.
-	Logger logging.Logger
+	//
+	// If it is nil, a harpy.DefaultExchangeLogger is used.
+	newLogger func(*http.Request) harpy.ExchangeLogger
+}
+
+// HandlerOption configures the behavior of a handler.
+type HandlerOption func(*Handler)
+
+// NewHandler returns a new HTTP handler that provides an HTTP-based JSON-RPC
+// transport.
+func NewHandler(e harpy.Exchanger, options ...HandlerOption) http.Handler {
+	h := &Handler{
+		exchanger: e,
+	}
+
+	WithDefaultLogger(nil)(h)
+
+	for _, opt := range options {
+		opt(h)
+	}
+
+	return h
 }
 
 // ServeHTTP handles the HTTP request.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := logging.Prefix(h.Logger, "[%s] ", r.RemoteAddr)
-
 	harpy.Exchange( // nolint:errcheck // error already logged, nothing more to do
 		r.Context(),
-		h.Exchanger,
+		h.exchanger,
 		&RequestSetReader{Request: r},
 		&ResponseWriter{Target: w},
-		harpy.DefaultExchangeLogger{Target: logger},
+		h.newLogger(r),
 	)
 }

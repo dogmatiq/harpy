@@ -28,8 +28,8 @@ var _ = Describe("type Client", func() {
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 
-		handler = &Handler{
-			Exchanger: harpy.NewRouter(
+		handler = NewHandler(
+			harpy.NewRouter(
 				harpy.WithRoute(
 					"echo",
 					func(_ context.Context, params any) (any, error) {
@@ -49,7 +49,7 @@ var _ = Describe("type Client", func() {
 					),
 				),
 			),
-		}
+		)
 
 		server = httptest.NewServer(
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -273,8 +273,8 @@ var _ = Describe("type Client", func() {
 	Describe("func Notify()", func() {
 		It("returns nil on success", func() {
 			called := false
-			handler = &Handler{
-				Exchanger: harpy.NewRouter(
+			handler = NewHandler(
+				harpy.NewRouter(
 					harpy.WithRoute(
 						"echo",
 						func(_ context.Context, params []int) (any, error) {
@@ -285,7 +285,7 @@ var _ = Describe("type Client", func() {
 						},
 					),
 				),
-			}
+			)
 
 			params := []int{1, 2, 3}
 			err := client.Notify(ctx, "echo", params)

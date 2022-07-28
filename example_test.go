@@ -17,12 +17,12 @@ func Example() {
 	// Start the HTTP server.
 	http.ListenAndServe(
 		":8080",
-		&httptransport.Handler{
-			Exchanger: harpy.NewRouter(
+		httptransport.NewHandler(
+			harpy.NewRouter(
 				harpy.WithRoute("Get", server.Get),
 				harpy.WithRoute("Set", harpy.NoResult(server.Set)),
 			),
-		},
+		),
 	)
 }
 

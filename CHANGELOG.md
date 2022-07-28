@@ -12,9 +12,15 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Add `httptransport.NewHandler`
+- Add `httptransport.WithDefaultLogger()` and `WithZapLogger()`
+
 ### Changed
 
 - **[BC]** All methods on `ExchangeLogger` now require a context
+- **[BC]** All fields of `httptransport.Handler` are now unexported
 
 ## [0.6.2] - 2022-07-27
 

@@ -20,7 +20,7 @@ import (
 var _ = Describe("type Handler", func() {
 	var (
 		exchanger *ExchangerStub
-		handler   *Handler
+		handler   http.Handler
 		server    *httptest.Server
 		request   *strings.Reader
 	)
@@ -39,9 +39,7 @@ var _ = Describe("type Handler", func() {
 			}
 		}
 
-		handler = &Handler{
-			Exchanger: exchanger,
-		}
+		handler = NewHandler(exchanger)
 
 		server = httptest.NewServer(handler)
 
