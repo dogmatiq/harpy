@@ -1,6 +1,7 @@
 package harpy
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"unicode"
@@ -13,17 +14,17 @@ import (
 type ExchangeLogger interface {
 	// LogError logs about an error that is a result of some problem with the
 	// request set as a whole.
-	LogError(res ErrorResponse)
+	LogError(ctx context.Context, res ErrorResponse)
 
 	// LogWriterError logs about an error that occured when attempting to use a
 	// ResponseWriter.
-	LogWriterError(err error)
+	LogWriterError(ctx context.Context, err error)
 
 	// LogNotification logs about a notification request.
-	LogNotification(req Request)
+	LogNotification(ctx context.Context, req Request)
 
 	// LogCall logs about a call request/response pair.
-	LogCall(req Request, res Response)
+	LogCall(ctx context.Context, req Request, res Response)
 }
 
 // DefaultExchangeLogger is the default implementation of ExchangeLogger.
@@ -32,9 +33,11 @@ type DefaultExchangeLogger struct {
 	Target logging.Logger
 }
 
+var _ ExchangeLogger = (*DefaultExchangeLogger)(nil)
+
 // LogError writes an information about an error response that is a result of
 // some problem with the request set as a whole.
-func (l DefaultExchangeLogger) LogError(res ErrorResponse) {
+func (l DefaultExchangeLogger) LogError(ctx context.Context, res ErrorResponse) {
 	var w strings.Builder
 	writeErrorResponseDetails(&w, res)
 	logging.LogString(l.Target, w.String())
@@ -42,12 +45,12 @@ func (l DefaultExchangeLogger) LogError(res ErrorResponse) {
 
 // LogWriterError logs about an error that occured when attempting to use a
 // ResponseWriter.
-func (l DefaultExchangeLogger) LogWriterError(err error) {
+func (l DefaultExchangeLogger) LogWriterError(ctx context.Context, err error) {
 	logging.Log(l.Target, "unable to write JSON-RPC response: %s", err)
 }
 
 // LogNotification logs information about a notification request.
-func (l DefaultExchangeLogger) LogNotification(req Request) {
+func (l DefaultExchangeLogger) LogNotification(ctx context.Context, req Request) {
 	var w strings.Builder
 
 	w.WriteString("notify ")
@@ -60,7 +63,7 @@ func (l DefaultExchangeLogger) LogNotification(req Request) {
 }
 
 // LogCall logs information about a call request and its response.
-func (l DefaultExchangeLogger) LogCall(req Request, res Response) {
+func (l DefaultExchangeLogger) LogCall(ctx context.Context, req Request, res Response) {
 	var w strings.Builder
 
 	w.WriteString("call ")

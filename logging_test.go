@@ -1,6 +1,7 @@
 package harpy_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -13,6 +14,7 @@ import (
 
 var _ = Context("type DefaultExchangeLogger", func() {
 	var (
+		ctx                           context.Context
 		request                       harpy.Request
 		success                       harpy.SuccessResponse
 		nativeError                   harpy.ErrorResponse
@@ -23,6 +25,8 @@ var _ = Context("type DefaultExchangeLogger", func() {
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
+
 		request = Request{
 			Version:    "2.0",
 			ID:         json.RawMessage(`123`),
@@ -46,7 +50,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 
 	Describe("func LogError()", func() {
 		It("logs details of a native error response", func() {
-			logger.LogError(nativeError)
+			logger.LogError(ctx, nativeError)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -57,7 +61,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		})
 
 		It("logs details of a native error response with a non-standard message", func() {
-			logger.LogError(nativeErrorNonStandardMessage)
+			logger.LogError(ctx, nativeErrorNonStandardMessage)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -68,8 +72,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		})
 
 		It("logs details of a non-native causal error", func() {
-			logger.LogError(nonNativeError)
-
+			logger.LogError(ctx, nonNativeError)
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
 					Message: `error: -32603 internal server error, caused by: <error>`,
@@ -82,7 +85,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 	Describe("func LogNotification()", func() {
 		It("logs the request information", func() {
 			request.ID = nil
-			logger.LogNotification(request)
+			logger.LogNotification(ctx, request)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -95,7 +98,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		It("quotes empty method names", func() {
 			request.ID = nil
 			request.Method = ""
-			logger.LogNotification(request)
+			logger.LogNotification(ctx, request)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -108,7 +111,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
 			request.ID = nil
 			request.Method = "<the method>\x00"
-			logger.LogNotification(request)
+			logger.LogNotification(ctx, request)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -121,7 +124,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 
 	Describe("func LogCall()", func() {
 		It("logs the request and response information", func() {
-			logger.LogCall(request, success)
+			logger.LogCall(ctx, request, success)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -133,7 +136,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 
 		It("quotes empty method names", func() {
 			request.Method = ""
-			logger.LogCall(request, success)
+			logger.LogCall(ctx, request, success)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -145,7 +148,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 
 		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
 			request.Method = "<the method>\x00"
-			logger.LogCall(request, success)
+			logger.LogCall(ctx, request, success)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -156,7 +159,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		})
 
 		It("logs details of a native error response", func() {
-			logger.LogCall(request, nativeError)
+			logger.LogCall(ctx, request, nativeError)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -167,7 +170,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		})
 
 		It("logs details of a native error response with a non-standard message", func() {
-			logger.LogCall(request, nativeErrorNonStandardMessage)
+			logger.LogCall(ctx, request, nativeErrorNonStandardMessage)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -178,7 +181,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 		})
 
 		It("logs details of a non-native causal error", func() {
-			logger.LogCall(request, nonNativeError)
+			logger.LogCall(ctx, request, nonNativeError)
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{
@@ -191,7 +194,7 @@ var _ = Context("type DefaultExchangeLogger", func() {
 
 	Describe("func LogWriterError()", func() {
 		It("logs the error", func() {
-			logger.LogWriterError(errors.New("<error>"))
+			logger.LogWriterError(ctx, errors.New("<error>"))
 
 			Expect(buffer.Messages()).To(ContainElement(
 				logging.BufferedLogMessage{

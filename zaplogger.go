@@ -1,6 +1,7 @@
 package harpy
 
 import (
+	"context"
 	"strings"
 
 	"go.uber.org/zap"
@@ -12,9 +13,11 @@ type ZapExchangeLogger struct {
 	Target *zap.Logger
 }
 
+var _ ExchangeLogger = (*ZapExchangeLogger)(nil)
+
 // LogError writes an information about an error response that is a result of
 // some problem with the request set as a whole.
-func (l ZapExchangeLogger) LogError(res ErrorResponse) {
+func (l ZapExchangeLogger) LogError(ctx context.Context, res ErrorResponse) {
 	fieldCount := 2
 	fields := [4]zap.Field{
 		zap.Int("error_code", int(res.Error.Code)),
@@ -39,7 +42,7 @@ func (l ZapExchangeLogger) LogError(res ErrorResponse) {
 
 // LogWriterError logs about an error that occured when attempting to use a
 // ResponseWriter.
-func (l ZapExchangeLogger) LogWriterError(err error) {
+func (l ZapExchangeLogger) LogWriterError(ctx context.Context, err error) {
 	l.Target.Error(
 		"unable to write JSON-RPC response",
 		zap.String("error", err.Error()),
@@ -47,7 +50,7 @@ func (l ZapExchangeLogger) LogWriterError(err error) {
 }
 
 // LogNotification logs information about a notification request.
-func (l ZapExchangeLogger) LogNotification(req Request) {
+func (l ZapExchangeLogger) LogNotification(ctx context.Context, req Request) {
 	var w strings.Builder
 
 	w.WriteString("notify ")
@@ -60,7 +63,7 @@ func (l ZapExchangeLogger) LogNotification(req Request) {
 }
 
 // LogCall logs information about a call request and its response.
-func (l ZapExchangeLogger) LogCall(req Request, res Response) {
+func (l ZapExchangeLogger) LogCall(ctx context.Context, req Request, res Response) {
 	var w strings.Builder
 
 	w.WriteString("call ")

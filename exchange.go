@@ -86,7 +86,7 @@ func Exchange(
 		// Always close the writer, but only return its error if there was no
 		// more specific error already.
 		if e := w.Close(); e != nil {
-			l.LogWriterError(e)
+			l.LogWriterError(ctx, e)
 
 			if err == nil {
 				err = e
@@ -134,10 +134,10 @@ func readRequestSet(
 			// There was no problem reading data for the request set, but it
 			// could not be parsed as JSON.
 			res := NewErrorResponse(nil, readErr)
-			l.LogError(res)
+			l.LogError(ctx, res)
 
 			if writeErr := w.WriteError(res); writeErr != nil {
-				l.LogWriterError(writeErr)
+				l.LogWriterError(ctx, writeErr)
 				return RequestSet{}, false, writeErr
 			}
 
@@ -155,10 +155,10 @@ func readRequestSet(
 				WithCause(readErr),
 			),
 		)
-		l.LogError(res)
+		l.LogError(ctx, res)
 
 		if writeErr := w.WriteError(res); writeErr != nil {
-			l.LogWriterError(writeErr)
+			l.LogWriterError(ctx, writeErr)
 			// Don't return the writeErr, preferring instead to return the
 			// readErr that happened first.
 		}
@@ -170,10 +170,10 @@ func readRequestSet(
 		// The request data is well-formed JSON but not a valid JSON-RPC request
 		// or batch.
 		res := newNativeErrorResponse(nil, err)
-		l.LogError(res)
+		l.LogError(ctx, res)
 
 		if writeErr := w.WriteError(res); writeErr != nil {
-			l.LogWriterError(writeErr)
+			l.LogWriterError(ctx, writeErr)
 			return RequestSet{}, false, writeErr
 		}
 
@@ -194,15 +194,15 @@ func exchangeOne(
 ) error {
 	if req.IsNotification() {
 		e.Notify(ctx, req)
-		l.LogNotification(req)
+		l.LogNotification(ctx, req)
 		return nil
 	}
 
 	res := e.Call(ctx, req)
-	l.LogCall(req, res)
+	l.LogCall(ctx, req, res)
 
 	if err := w(res); err != nil {
-		l.LogWriterError(err)
+		l.LogWriterError(ctx, err)
 		return err
 	}
 

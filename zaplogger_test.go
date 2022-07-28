@@ -2,6 +2,7 @@ package harpy_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -15,6 +16,7 @@ import (
 
 var _ = Context("type ZapExchangeLogger", func() {
 	var (
+		ctx                           context.Context
 		request                       harpy.Request
 		success                       harpy.SuccessResponse
 		nativeError                   harpy.ErrorResponse
@@ -25,6 +27,8 @@ var _ = Context("type ZapExchangeLogger", func() {
 	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
+
 		request = Request{
 			Version:    "2.0",
 			ID:         json.RawMessage(`123`),
@@ -54,7 +58,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 	Describe("func LogError()", func() {
 		It("logs details of a native error response", func() {
-			logger.LogError(nativeError)
+			logger.LogError(ctx, nativeError)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -65,7 +69,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		})
 
 		It("logs details of a native error response with a non-standard message", func() {
-			logger.LogError(nativeErrorNonStandardMessage)
+			logger.LogError(ctx, nativeErrorNonStandardMessage)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -76,7 +80,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		})
 
 		It("logs details of a non-native causal error", func() {
-			logger.LogError(nonNativeError)
+			logger.LogError(ctx, nonNativeError)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -90,7 +94,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 	Describe("func LogNotification()", func() {
 		It("logs the request information", func() {
 			request.ID = nil
-			logger.LogNotification(request)
+			logger.LogNotification(ctx, request)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -103,7 +107,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		It("quotes empty method names", func() {
 			request.ID = nil
 			request.Method = ""
-			logger.LogNotification(request)
+			logger.LogNotification(ctx, request)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -116,7 +120,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
 			request.ID = nil
 			request.Method = "<the method>\x00"
-			logger.LogNotification(request)
+			logger.LogNotification(ctx, request)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -129,7 +133,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 	Describe("func LogCall()", func() {
 		It("logs the request and response information", func() {
-			logger.LogCall(request, success)
+			logger.LogCall(ctx, request, success)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -141,7 +145,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 		It("quotes empty method names", func() {
 			request.Method = ""
-			logger.LogCall(request, success)
+			logger.LogCall(ctx, request, success)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -153,7 +157,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
 			request.Method = "<the method>\x00"
-			logger.LogCall(request, success)
+			logger.LogCall(ctx, request, success)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -164,7 +168,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		})
 
 		It("logs details of a native error response", func() {
-			logger.LogCall(request, nativeError)
+			logger.LogCall(ctx, request, nativeError)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -175,7 +179,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		})
 
 		It("logs details of a native error response with a non-standard message", func() {
-			logger.LogCall(request, nativeErrorNonStandardMessage)
+			logger.LogCall(ctx, request, nativeErrorNonStandardMessage)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -186,7 +190,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		})
 
 		It("logs details of a non-native causal error", func() {
-			logger.LogCall(request, nonNativeError)
+			logger.LogCall(ctx, request, nonNativeError)
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
@@ -199,7 +203,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 	Describe("func LogWriterError()", func() {
 		It("logs the error", func() {
-			logger.LogWriterError(errors.New("<error>"))
+			logger.LogWriterError(ctx, errors.New("<error>"))
 			logger.Target.Sync()
 
 			Expect(buffer.String()).To(
