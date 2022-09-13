@@ -9,7 +9,7 @@ require (
 	github.com/onsi/gomega v1.20.2
 	go.opentelemetry.io/otel v1.10.0
 	go.opentelemetry.io/otel/metric v0.31.0
-	go.opentelemetry.io/otel/sdk v1.9.0
+	go.opentelemetry.io/otel/sdk v1.10.0
 	go.opentelemetry.io/otel/sdk/export/metric v0.28.0
 	go.opentelemetry.io/otel/sdk/metric v0.31.0
 	go.opentelemetry.io/otel/trace v1.10.0
