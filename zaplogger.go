@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -18,34 +19,43 @@ var _ ExchangeLogger = (*ZapExchangeLogger)(nil)
 // LogError writes an information about an error response that is a result of
 // some problem with the request set as a whole.
 func (l ZapExchangeLogger) LogError(ctx context.Context, res ErrorResponse) {
-	fieldCount := 2
-	fields := [4]zap.Field{
+	fields := []zap.Field{
 		zap.Int("error_code", int(res.Error.Code)),
 		zap.String("error", res.Error.Code.String()),
 	}
 
+	if span := trace.SpanFromContext(ctx); span.IsRecording() {
+		fields = append(fields, zap.String("trace_id", span.SpanContext().TraceID().String()))
+	}
+
 	if res.ServerError != nil {
-		fields[fieldCount] = zap.String("caused_by", res.ServerError.Error())
-		fieldCount++
+		fields = append(fields, zap.String("caused_by", res.ServerError.Error()))
 	}
 
 	if res.Error.Message != res.Error.Code.String() {
-		fields[fieldCount] = zap.String("responded_with", res.Error.Message)
-		fieldCount++
+		fields = append(fields, zap.String("responded_with", res.Error.Message))
 	}
 
 	l.Target.Error(
 		"error",
-		fields[:fieldCount]...,
+		fields...,
 	)
 }
 
 // LogWriterError logs about an error that occured when attempting to use a
 // ResponseWriter.
 func (l ZapExchangeLogger) LogWriterError(ctx context.Context, err error) {
+	fields := []zap.Field{
+		zap.String("error", err.Error()),
+	}
+
+	if span := trace.SpanFromContext(ctx); span.IsRecording() {
+		fields = append(fields, zap.String("trace_id", span.SpanContext().TraceID().String()))
+	}
+
 	l.Target.Error(
 		"unable to write JSON-RPC response",
-		zap.String("error", err.Error()),
+		fields...,
 	)
 }
 
@@ -56,9 +66,17 @@ func (l ZapExchangeLogger) LogNotification(ctx context.Context, req Request) {
 	w.WriteString("notify ")
 	writeMethod(&w, req.Method)
 
+	fields := []zap.Field{
+		zap.Int("param_size", len(req.Parameters)),
+	}
+
+	if span := trace.SpanFromContext(ctx); span.IsRecording() {
+		fields = append(fields, zap.String("trace_id", span.SpanContext().TraceID().String()))
+	}
+
 	l.Target.Info(
 		w.String(),
-		zap.Int("param_size", len(req.Parameters)),
+		fields...,
 	)
 }
 
@@ -69,34 +87,39 @@ func (l ZapExchangeLogger) LogCall(ctx context.Context, req Request, res Respons
 	w.WriteString("call ")
 	writeMethod(&w, req.Method)
 
+	fields := []zap.Field{
+		zap.Int("param_size", len(req.Parameters)),
+	}
+
+	if span := trace.SpanFromContext(ctx); span.IsRecording() {
+		fields = append(fields, zap.String("trace_id", span.SpanContext().TraceID().String()))
+	}
+
 	switch res := res.(type) {
 	case SuccessResponse:
+		fields = append(fields, zap.Int("result_size", len(res.Result)))
 		l.Target.Info(
 			w.String(),
-			zap.Int("param_size", len(req.Parameters)),
-			zap.Int("result_size", len(res.Result)),
+			fields...,
 		)
 	case ErrorResponse:
-		fieldCount := 3
-		fields := [5]zap.Field{
-			zap.Int("param_size", len(req.Parameters)),
+		fields = append(
+			fields,
 			zap.Int("error_code", int(res.Error.Code)),
 			zap.String("error", res.Error.Code.String()),
-		}
+		)
 
 		if res.ServerError != nil {
-			fields[fieldCount] = zap.String("caused_by", res.ServerError.Error())
-			fieldCount++
+			fields = append(fields, zap.String("caused_by", res.ServerError.Error()))
 		}
 
 		if res.Error.Message != res.Error.Code.String() {
-			fields[fieldCount] = zap.String("responded_with", res.Error.Message)
-			fieldCount++
+			fields = append(fields, zap.String("responded_with", res.Error.Message))
 		}
 
 		l.Target.Error(
 			w.String(),
-			fields[:fieldCount]...,
+			fields...,
 		)
 	}
 }
