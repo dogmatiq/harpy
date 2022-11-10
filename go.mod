@@ -12,7 +12,6 @@ require (
 	go.opentelemetry.io/otel/metric v0.33.0
 	go.opentelemetry.io/otel/sdk v1.11.1
 	go.opentelemetry.io/otel/sdk/export/metric v0.28.0
-	go.opentelemetry.io/otel/sdk/metric v0.31.0
 	go.opentelemetry.io/otel/trace v1.11.1
 	go.uber.org/zap v1.23.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
