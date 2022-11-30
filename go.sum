@@ -4,8 +4,8 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dogmatiq/dodeca v1.4.0 h1:b1cz1/FeCbzs3/nZZfkHv4dbo4UQMseheTRKf0yutYQ=
-github.com/dogmatiq/dodeca v1.4.0/go.mod h1:wYkgA+Ou7vuIBHflWceVG/KEVfZiluEoNY0MglFfaow=
+github.com/dogmatiq/dodeca v1.4.1 h1:vNumM6nTBZU/YDwuyRqsQD7cHQI3Q3yNZJyDj6JmDM8=
+github.com/dogmatiq/dodeca v1.4.1/go.mod h1:wYkgA+Ou7vuIBHflWceVG/KEVfZiluEoNY0MglFfaow=
 github.com/dogmatiq/iago v0.4.0 h1:57nZqVT34IZxtCZEW/RFif7DNUEjMXgevfr/Mmd0N8I=
 github.com/dogmatiq/iago v0.4.0/go.mod h1:fishMWBtzYcjgis6d873VTv9kFm/wHYLOzOyO9ECBDc=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
