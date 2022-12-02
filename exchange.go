@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -79,7 +80,14 @@ func Exchange(
 	l ExchangeLogger,
 ) (err error) {
 	if l == nil {
-		l = DefaultExchangeLogger{}
+		t, err := zap.NewProduction()
+		if err != nil {
+			return err
+		}
+
+		l = ZapExchangeLogger{
+			Target: t,
+		}
 	}
 
 	defer func() {

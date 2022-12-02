@@ -9,11 +9,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/dogmatiq/dodeca/logging"
 	. "github.com/dogmatiq/harpy"
 	. "github.com/dogmatiq/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("func Exchange() (batch requests)", func() {
@@ -22,8 +24,8 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 		requestA, requestB, requestC Request
 		reader                       *RequestSetReaderStub
 		writer                       *ResponseWriterStub
-		buffer                       *logging.BufferedLogger
-		logger                       DefaultExchangeLogger
+		logs                         *observer.ObservedLogs
+		logger                       *ZapExchangeLogger
 		closed                       bool
 	)
 
@@ -81,10 +83,11 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 			},
 		}
 
-		buffer = &logging.BufferedLogger{}
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.DebugLevel)
 
-		logger = DefaultExchangeLogger{
-			Target: buffer,
+		logger = &ZapExchangeLogger{
+			Target: zap.New(core),
 		}
 
 		closed = false
@@ -128,9 +131,16 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `call "<method-a>" [params: 2 B, result: 22 B]`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.InfoLevel,
+							Message: `call "<method-a>"`,
+						},
+						Context: []zapcore.Field{
+							zap.Int("param_size", 2),
+							zap.Int("result_size", 22),
+						},
 					},
 				))
 			})
@@ -149,9 +159,15 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				)
 
 				Expect(err).To(MatchError("<write error>"))
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `unable to write JSON-RPC response: <write error>`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.ErrorLevel,
+							Message: `unable to write JSON-RPC response`,
+						},
+						Context: []zapcore.Field{
+							zap.String("error", "<write error>"),
+						},
 					},
 				))
 			})
@@ -186,9 +202,15 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(called).To(BeTrue())
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `notify "<method-c>" [params: 2 B]`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.InfoLevel,
+							Message: `notify "<method-c>"`,
+						},
+						Context: []zapcore.Field{
+							zap.Int("param_size", 2),
+						},
 					},
 				))
 			})
@@ -285,15 +307,35 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				},
 			))
 
-			Expect(buffer.Messages()).To(ContainElements(
-				logging.BufferedLogMessage{
-					Message: `call "<method-a>" [params: 2 B, result: 22 B]`,
+			Expect(logs.AllUntimed()).To(ContainElements(
+				observer.LoggedEntry{
+					Entry: zapcore.Entry{
+						Level:   zapcore.InfoLevel,
+						Message: `call "<method-a>"`,
+					},
+					Context: []zapcore.Field{
+						zap.Int("param_size", 2),
+						zap.Int("result_size", 22),
+					},
 				},
-				logging.BufferedLogMessage{
-					Message: `call "<method-b>" [params: 2 B, result: 22 B]`,
+				observer.LoggedEntry{
+					Entry: zapcore.Entry{
+						Level:   zapcore.InfoLevel,
+						Message: `call "<method-b>"`,
+					},
+					Context: []zapcore.Field{
+						zap.Int("param_size", 2),
+						zap.Int("result_size", 22),
+					},
 				},
-				logging.BufferedLogMessage{
-					Message: `notify "<method-c>" [params: 2 B]`,
+				observer.LoggedEntry{
+					Entry: zapcore.Entry{
+						Level:   zapcore.InfoLevel,
+						Message: `notify "<method-c>"`,
+					},
+					Context: []zapcore.Field{
+						zap.Int("param_size", 2),
+					},
 				},
 			))
 		})
@@ -315,9 +357,15 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				)
 
 				Expect(err).To(MatchError("<write error>"))
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `unable to write JSON-RPC response: <write error>`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.ErrorLevel,
+							Message: `unable to write JSON-RPC response`,
+						},
+						Context: []zapcore.Field{
+							zap.String("error", "<write error>"),
+						},
 					},
 				))
 			})

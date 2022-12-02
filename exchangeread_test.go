@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/dogmatiq/dodeca/logging"
 	. "github.com/dogmatiq/harpy"
 	. "github.com/dogmatiq/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
@@ -16,8 +18,8 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 		exchanger *ExchangerStub
 		reader    *RequestSetReaderStub
 		writer    *ResponseWriterStub
-		buffer    *logging.BufferedLogger
-		logger    DefaultExchangeLogger
+		logs      *observer.ObservedLogs
+		logger    *ZapExchangeLogger
 		closed    bool
 	)
 
@@ -43,10 +45,11 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 			},
 		}
 
-		buffer = &logging.BufferedLogger{}
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.DebugLevel)
 
-		logger = DefaultExchangeLogger{
-			Target: buffer,
+		logger = &ZapExchangeLogger{
+			Target: zap.New(core),
 		}
 
 		closed = false
@@ -81,7 +84,7 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 				)
 
 				Expect(err).To(Equal(ctx.Err()))
-				Expect(buffer.Messages()).To(BeEmpty())
+				Expect(logs.AllUntimed()).To(BeEmpty())
 			})
 		})
 
@@ -122,9 +125,18 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 				)
 
 				Expect(err).To(MatchError("<read error>"))
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `error: -32603 internal server error, caused by: <read error>, responded with: unable to read JSON-RPC request`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.ErrorLevel,
+							Message: `error`,
+						},
+						Context: []zapcore.Field{
+							zap.Int("error_code", int(InternalErrorCode)),
+							zap.String("error", "internal server error"),
+							zap.String("caused_by", "<read error>"),
+							zap.String("responded_with", "unable to read JSON-RPC request"),
+						},
 					},
 				))
 			})
@@ -145,9 +157,15 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 				)
 
 				Expect(err).To(MatchError("<read error>")) // note: still returns the original read error
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `unable to write JSON-RPC response: <write error>`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.ErrorLevel,
+							Message: `unable to write JSON-RPC response`,
+						},
+						Context: []zapcore.Field{
+							zap.String("error", "<write error>"),
+						},
 					},
 				))
 			})
@@ -189,9 +207,16 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `error: -32700 parse error`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.ErrorLevel,
+							Message: `error`,
+						},
+						Context: []zapcore.Field{
+							zap.Int("error_code", int(ParseErrorCode)),
+							zap.String("error", "parse error"),
+						},
 					},
 				))
 			})
@@ -212,9 +237,15 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 				)
 
 				Expect(err).To(MatchError("<write error>"))
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `unable to write JSON-RPC response: <write error>`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.ErrorLevel,
+							Message: `unable to write JSON-RPC response`,
+						},
+						Context: []zapcore.Field{
+							zap.String("error", "<write error>"),
+						},
 					},
 				))
 			})
@@ -254,9 +285,17 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 				)
 
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(buffer.Messages()).To(ContainElement(
-					logging.BufferedLogMessage{
-						Message: `error: -32600 invalid request, responded with: non-batch request sets must contain exactly one request`,
+				Expect(logs.AllUntimed()).To(ContainElement(
+					observer.LoggedEntry{
+						Entry: zapcore.Entry{
+							Level:   zapcore.ErrorLevel,
+							Message: `error`,
+						},
+						Context: []zapcore.Field{
+							zap.Int("error_code", int(InvalidRequestCode)),
+							zap.String("error", "invalid request"),
+							zap.String("responded_with", "non-batch request sets must contain exactly one request"),
+						},
 					},
 				))
 			})
@@ -278,9 +317,15 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 			)
 
 			Expect(err).To(MatchError("<write error>"))
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `unable to write JSON-RPC response: <write error>`,
+			Expect(logs.AllUntimed()).To(ContainElement(
+				observer.LoggedEntry{
+					Entry: zapcore.Entry{
+						Level:   zapcore.ErrorLevel,
+						Message: `unable to write JSON-RPC response`,
+					},
+					Context: []zapcore.Field{
+						zap.String("error", "<write error>"),
+					},
 				},
 			))
 		})

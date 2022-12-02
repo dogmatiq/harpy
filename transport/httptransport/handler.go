@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/dogmatiq/harpy"
+	"go.uber.org/zap"
 )
 
 // mediaType is the MIME media-type for JSON-RPC requests and responses when
@@ -33,10 +34,17 @@ func NewHandler(e harpy.Exchanger, options ...HandlerOption) http.Handler {
 		exchanger: e,
 	}
 
-	WithDefaultLogger(nil)(h)
-
 	for _, opt := range options {
 		opt(h)
+	}
+
+	if h.newLogger == nil {
+		logger, err := zap.NewProduction()
+		if err != nil {
+			panic(err)
+		}
+
+		WithZapLogger(logger)(h)
 	}
 
 	return h

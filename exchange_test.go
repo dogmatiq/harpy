@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/dogmatiq/dodeca/logging"
 	. "github.com/dogmatiq/harpy"
 	. "github.com/dogmatiq/harpy/internal/fixtures"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("func Exchange()", func() {
@@ -18,8 +20,8 @@ var _ = Describe("func Exchange()", func() {
 		request   Request
 		reader    *RequestSetReaderStub
 		writer    *ResponseWriterStub
-		buffer    *logging.BufferedLogger
-		logger    DefaultExchangeLogger
+		logs      *observer.ObservedLogs
+		logger    *ZapExchangeLogger
 	)
 
 	BeforeEach(func() {
@@ -41,10 +43,11 @@ var _ = Describe("func Exchange()", func() {
 
 		writer = &ResponseWriterStub{}
 
-		buffer = &logging.BufferedLogger{}
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.DebugLevel)
 
-		logger = DefaultExchangeLogger{
-			Target: buffer,
+		logger = &ZapExchangeLogger{
+			Target: zap.New(core),
 		}
 	})
 
@@ -65,9 +68,15 @@ var _ = Describe("func Exchange()", func() {
 			)
 
 			Expect(err).To(MatchError("<close error>"))
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `unable to write JSON-RPC response: <close error>`,
+			Expect(logs.AllUntimed()).To(ContainElement(
+				observer.LoggedEntry{
+					Entry: zapcore.Entry{
+						Level:   zapcore.ErrorLevel,
+						Message: "unable to write JSON-RPC response",
+					},
+					Context: []zapcore.Field{
+						zap.String("error", "<close error>"),
+					},
 				},
 			))
 		})
@@ -86,9 +95,15 @@ var _ = Describe("func Exchange()", func() {
 			)
 
 			Expect(err).To(MatchError("<read error>"))
-			Expect(buffer.Messages()).To(ContainElement(
-				logging.BufferedLogMessage{
-					Message: `unable to write JSON-RPC response: <close error>`,
+			Expect(logs.AllUntimed()).To(ContainElement(
+				observer.LoggedEntry{
+					Entry: zapcore.Entry{
+						Level:   zapcore.ErrorLevel,
+						Message: "unable to write JSON-RPC response",
+					},
+					Context: []zapcore.Field{
+						zap.String("error", "<close error>"),
+					},
 				},
 			))
 		})

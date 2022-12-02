@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.8.0] - 2022-12-02
+
+This release removes Harpy's dependency on the deprecated
+`github.com/dogmatiq/dodeca` module. `go.uber.org/zap` is now used as the
+default logger.
+
+### Removed
+
+- **[BC]** Remove `harpy.DefaultExchangeLogger`
+- **[BC]** Remove `httptransport.WithDefaultLogger()`
+
 ## [0.7.0] - 2022-07-29
 
 ### Added
