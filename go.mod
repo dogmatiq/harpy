@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/dogmatiq/iago v0.4.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.0
+	github.com/onsi/gomega v1.27.1
 	go.opentelemetry.io/otel v1.12.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.12.0
 	go.opentelemetry.io/otel/metric v0.34.0
@@ -26,7 +26,7 @@ require (
 	github.com/nxadm/tail v1.4.8 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
