@@ -1,13 +1,16 @@
+<div align="center">
+
 # Harpy
 
-[![Build Status](https://github.com/dogmatiq/harpy/workflows/CI/badge.svg)](https://github.com/dogmatiq/harpy/actions?workflow=CI)
-[![Code Coverage](https://img.shields.io/codecov/c/github/dogmatiq/harpy/main.svg)](https://codecov.io/github/dogmatiq/harpy)
-[![Latest Version](https://img.shields.io/github/tag/dogmatiq/harpy.svg?label=semver)](https://semver.org)
-[![Documentation](https://img.shields.io/badge/go.dev-reference-007d9c)](https://pkg.go.dev/github.com/dogmatiq/harpy)
-[![Go Report Card](https://goreportcard.com/badge/github.com/dogmatiq/harpy)](https://goreportcard.com/report/github.com/dogmatiq/harpy)
-
-Harpy is a toolkit for writing [JSON-RPC v2.0](https://www.jsonrpc.org/specification)
+A toolkit for writing [JSON-RPC v2.0](https://www.jsonrpc.org/specification)
 clients and servers in Go.
+
+[![Documentation](https://img.shields.io/badge/go.dev-documentation-007d9c?&style=for-the-badge)](https://pkg.go.dev/github.com/dogmatiq/harpy)
+[![Latest Version](https://img.shields.io/github/tag/dogmatiq/harpy.svg?&style=for-the-badge&label=semver)](https://github.com/dogmatiq/harpy/releases)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/dogmatiq/harpy/ci.yml?style=for-the-badge&branch=main)](https://github.com/dogmatiq/harpy/actions/workflows/ci.yml)
+[![Code Coverage](https://img.shields.io/codecov/c/github/dogmatiq/harpy/main.svg?style=for-the-badge)](https://codecov.io/github/dogmatiq/harpy)
+
+</div>
 
 ## Example
 
