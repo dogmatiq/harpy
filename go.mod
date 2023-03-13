@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/dogmatiq/iago v0.4.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.2
+	github.com/onsi/gomega v1.27.3
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.14.0
 	go.opentelemetry.io/otel/metric v0.34.0
