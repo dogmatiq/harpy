@@ -364,7 +364,7 @@ func unmarshalBatchRequest(r *bufio.Reader) (RequestSet, error) {
 // unmarshalJSONForRequest unmarshals JSON content from r into v. If the JSON
 // cannot be parsed it returns a JSON-RPC error with the "parse error" code.
 func unmarshalJSONForRequest(r io.Reader, v any) error {
-	err := jsonx.Decode[jsonx.UnmarshalOption](r, v)
+	err := jsonx.Decode(r, v)
 
 	if jsonx.IsParseError(err) {
 		return NewErrorWithReservedCode(

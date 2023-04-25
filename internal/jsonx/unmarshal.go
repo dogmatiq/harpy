@@ -7,11 +7,7 @@ import (
 )
 
 // Decode unmarshals JSON content from r into v.
-func Decode[O ~UnmarshalOption](
-	r io.Reader,
-	v any,
-	options ...O,
-) error {
+func Decode(r io.Reader, v any, options ...UnmarshalOption) error {
 	var opts UnmarshalOptions
 	for _, fn := range options {
 		fn(&opts)
@@ -26,11 +22,7 @@ func Decode[O ~UnmarshalOption](
 }
 
 // Unmarshal unmarshals JSON content from data into v.
-func Unmarshal[O ~UnmarshalOption](
-	data []byte,
-	v any,
-	options ...O,
-) error {
+func Unmarshal(data []byte, v any, options ...UnmarshalOption) error {
 	return Decode(
 		bytes.NewReader(data),
 		v,
@@ -38,10 +30,10 @@ func Unmarshal[O ~UnmarshalOption](
 	)
 }
 
+// UnmarshalOption is an option that changes the behavior of JSON unmarshaling.
+type UnmarshalOption func(*UnmarshalOptions)
+
 // UnmarshalOptions is a set of options that control how JSON is unmarshaled.
 type UnmarshalOptions struct {
 	AllowUnknownFields bool
 }
-
-// UnmarshalOption is a function that changes the behavior of JSON unmarshaling.
-type UnmarshalOption = func(*UnmarshalOptions)

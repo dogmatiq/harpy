@@ -43,6 +43,30 @@ var _ = Describe("type Router", func() {
 			Expect(called).To(BeTrue())
 		})
 
+		It("supports unmarshal options (via WithRoute())", func() {
+			called := false
+			request.Parameters = json.RawMessage(`{"Value": 123, "Unknown": 456}`)
+
+			type Params struct {
+				Value int
+			}
+
+			router = NewRouter(
+				WithRoute(
+					"<method>",
+					func(ctx context.Context, params Params) (any, error) {
+						called = true
+						Expect(params).To(Equal(Params{Value: 123}))
+						return nil, nil
+					},
+					AllowUnknownFields(true),
+				),
+			)
+
+			router.Call(context.Background(), request)
+			Expect(called).To(BeTrue())
+		})
+
 		It("allows calls to handlers that don't return a result (via NoResult())", func() {
 			called := false
 

@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.8.2] - 2023-04-26
+
+### Changed
+
+- Change `WithRoute()` to accept unmarshaling options
+
 ## [0.8.1] - 2023-04-25
 
 ### Added
@@ -150,6 +156,10 @@ if err != nil {
 [0.6.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.6.0
 [0.6.1]: https://github.com/dogmatiq/harpy/releases/tag/v0.6.1
 [0.6.2]: https://github.com/dogmatiq/harpy/releases/tag/v0.6.2
+[0.7.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.7.0
+[0.8.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.8.0
+[0.8.1]: https://github.com/dogmatiq/harpy/releases/tag/v0.8.1
+[0.8.2]: https://github.com/dogmatiq/harpy/releases/tag/v0.8.2
 
 <!-- version template
 ## [0.0.1] - YYYY-MM-DD

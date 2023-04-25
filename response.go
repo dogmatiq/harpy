@@ -355,7 +355,7 @@ func unmarshalBatchResponse(r *bufio.Reader) (ResponseSet, error) {
 
 // unmarshalJSONForResponse unmarshals JSON content from r into v.
 func unmarshalJSONForResponse(r io.Reader, v any) error {
-	err := jsonx.Decode[jsonx.UnmarshalOption](r, v)
+	err := jsonx.Decode(r, v)
 
 	if jsonx.IsParseError(err) {
 		return fmt.Errorf("unable to parse response: %w", err)

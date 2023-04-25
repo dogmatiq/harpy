@@ -71,12 +71,13 @@ type RouterOption func(*Router)
 func WithRoute[P, R any](
 	m string,
 	h func(context.Context, P) (R, error),
+	options ...UnmarshalOption,
 ) RouterOption {
 	return WithUntypedRoute(
 		m,
 		func(ctx context.Context, req Request) (any, error) {
 			var params P
-			if err := req.UnmarshalParameters(&params); err != nil {
+			if err := req.UnmarshalParameters(&params, options...); err != nil {
 				return nil, err
 			}
 
