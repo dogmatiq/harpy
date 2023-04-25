@@ -3,12 +3,15 @@ package harpy
 import (
 	"context"
 	"fmt"
+
+	"github.com/dogmatiq/harpy/internal/jsonx"
 )
 
 // Router is a Exchanger that dispatches to different handlers based on the
 // JSON-RPC method name.
 type Router struct {
-	routes map[string]UntypedHandler
+	routes           map[string]UntypedHandler
+	unmarshalOptions []jsonx.UnmarshalOption
 }
 
 // NewRouter returns a new router containing the given routes.
@@ -16,7 +19,7 @@ func NewRouter(options ...RouterOption) *Router {
 	router := &Router{}
 
 	for _, opt := range options {
-		opt(router)
+		opt.applyToRouter(router)
 	}
 
 	return router
@@ -61,7 +64,9 @@ func (r *Router) HasRoute(method string) bool {
 }
 
 // RouterOption represents a single route within a router.
-type RouterOption func(*Router)
+type RouterOption interface {
+	applyToRouter(*Router)
+}
 
 // WithRoute it a router option that adds a route from the method m to the
 // "typed" handler function h.
@@ -115,15 +120,25 @@ func WithUntypedRoute(
 	m string,
 	h func(context.Context, Request) (result any, _ error),
 ) RouterOption {
-	return func(r *Router) {
-		if _, ok := r.routes[m]; ok {
-			panic(fmt.Sprintf("duplicate route for '%s' method", m))
-		}
+	return option{
+		routerOptionFunc: func(r *Router) {
+			if _, ok := r.routes[m]; ok {
+				panic(fmt.Sprintf("duplicate route for '%s' method", m))
+			}
 
-		if r.routes == nil {
-			r.routes = map[string]UntypedHandler{}
-		}
+			if r.routes == nil {
+				r.routes = map[string]UntypedHandler{}
+			}
 
-		r.routes[m] = h
+			r.routes[m] = h
+		},
+	}
+}
+
+type routerOptionFunc func(*Router)
+
+func (fn routerOptionFunc) applyToRouter(r *Router) {
+	if fn != nil {
+		fn(r)
 	}
 }
