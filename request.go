@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"unicode"
+
+	"github.com/dogmatiq/harpy/internal/jsonx"
 )
 
 // jsonRPCVersion is the version that must appear in the "jsonrpc" field of
@@ -187,11 +189,8 @@ func (r Request) ValidateClientSide() (err Error, ok bool) {
 // If v implements the Validatable interface, it calls v.Validate() after
 // unmarshaling successfully. If validation fails it wraps the validation error
 // in the appropriate native JSON-RPC error.
-func (r Request) UnmarshalParameters(v any) error {
-	dec := json.NewDecoder(bytes.NewReader(r.Parameters))
-	dec.DisallowUnknownFields()
-
-	if err := dec.Decode(v); err != nil {
+func (r Request) UnmarshalParameters(v any, options ...UnmarshalOption) error {
+	if err := jsonx.Unmarshal(r.Parameters, v, options...); err != nil {
 		return InvalidParameters(
 			WithCause(err),
 		)
@@ -365,9 +364,9 @@ func unmarshalBatchRequest(r *bufio.Reader) (RequestSet, error) {
 // unmarshalJSONForRequest unmarshals JSON content from r into v. If the JSON
 // cannot be parsed it returns a JSON-RPC error with the "parse error" code.
 func unmarshalJSONForRequest(r io.Reader, v any) error {
-	err := unmarshalJSON(r, v)
+	err := jsonx.Decode[jsonx.UnmarshalOption](r, v)
 
-	if isJSONError(err) {
+	if jsonx.IsParseError(err) {
 		return NewErrorWithReservedCode(
 			ParseErrorCode,
 			WithCause(fmt.Errorf("unable to parse request: %w", err)),

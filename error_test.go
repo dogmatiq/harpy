@@ -158,6 +158,27 @@ var _ = Describe("type Error", func() {
 			_, err := e.UnmarshalData(&v)
 			Expect(err).To(MatchError("json: cannot unmarshal string into Go value of type int"))
 		})
+
+		It("supports the AllowUnknownFields() option", func() {
+			type In struct {
+				Foo int `json:"foo"`
+				Bar int `json:"bar"`
+			}
+			type Out struct {
+				Foo int `json:"foo"`
+			}
+
+			in := In{1, 2}
+			out := Out{1}
+
+			e := NewError(100, WithData(in))
+
+			var v Out
+			ok, err := e.UnmarshalData(&v, AllowUnknownFields(true))
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(v).To(Equal(out))
+		})
 	})
 
 	Describe("func Error()", func() {

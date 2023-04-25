@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.8.1] - 2023-04-25
+
+### Added
+
+- Add `UnmarshalOption` type
+- Add `AllowUnknownFields()` option
+
+### Changed
+
+- Change `Request.UnmarshalParameters()` to accept unmarshaling options
+- Change `Error.UnmarshalData()` to accept unmarshaling options
+- Change `httptransport.Client.Call()` to accept unmarshaling options
+
 ## [0.8.0] - 2022-12-02
 
 This release removes Harpy's dependency on the deprecated

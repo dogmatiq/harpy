@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"unicode"
+
+	"github.com/dogmatiq/harpy/internal/jsonx"
 )
 
 // Response is an interface for a JSON-RPC response object.
@@ -353,9 +355,9 @@ func unmarshalBatchResponse(r *bufio.Reader) (ResponseSet, error) {
 
 // unmarshalJSONForResponse unmarshals JSON content from r into v.
 func unmarshalJSONForResponse(r io.Reader, v any) error {
-	err := unmarshalJSON(r, v)
+	err := jsonx.Decode[jsonx.UnmarshalOption](r, v)
 
-	if isJSONError(err) {
+	if jsonx.IsParseError(err) {
 		return fmt.Errorf("unable to parse response: %w", err)
 	}
 

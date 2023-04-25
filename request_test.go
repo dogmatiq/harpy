@@ -437,6 +437,20 @@ var _ = Describe("type Request", func() {
 				Expect(rpcErr.Code()).To(Equal(InvalidParametersCode))
 				Expect(rpcErr.Unwrap()).To(MatchError("<error>"))
 			})
+
+			It("supports the AllowUnknownFields() option", func() {
+				req := Request{
+					Version:    "2.0",
+					Parameters: []byte(`{"Value":123, "Unknown": 456}`),
+				}
+
+				var params struct {
+					Value int
+				}
+				err := req.UnmarshalParameters(&params, AllowUnknownFields(true))
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(params.Value).To(Equal(123))
+			})
 		})
 	})
 })

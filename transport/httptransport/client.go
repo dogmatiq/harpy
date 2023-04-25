@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 
 	"github.com/dogmatiq/harpy"
+	"github.com/dogmatiq/harpy/internal/jsonx"
 )
 
 // Client is a HTTP-based JSON-RPC client.
@@ -32,6 +33,7 @@ func (c *Client) Call(
 	ctx context.Context,
 	method string,
 	params, result any,
+	options ...harpy.UnmarshalOption,
 ) error {
 	requestID := atomic.AddUint32(&c.prevID, 1)
 	req, err := harpy.NewCallRequest(
@@ -101,7 +103,7 @@ func (c *Client) Call(
 			)
 		}
 
-		if err := json.Unmarshal(res.Result, result); err != nil {
+		if err := jsonx.Unmarshal(res.Result, result, options...); err != nil {
 			return fmt.Errorf("unable to process JSON-RPC response (%s): unable to unmarshal result: %w", method, err)
 		}
 

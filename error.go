@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+
+	"github.com/dogmatiq/harpy/internal/jsonx"
 )
 
 // Error is a Go error that describes a JSON-RPC error.
@@ -139,13 +141,13 @@ func (e Error) MarshalData() (_ json.RawMessage, ok bool, _ error) {
 // UnmarshalData unmarshals the user-defined data into v.
 //
 // ok is false if there is no user-defined data associated with the error.
-func (e Error) UnmarshalData(v any) (ok bool, _ error) {
+func (e Error) UnmarshalData(v any, options ...UnmarshalOption) (ok bool, _ error) {
 	data, ok, err := e.MarshalData()
 	if !ok || err != nil {
 		return false, err
 	}
 
-	return true, json.Unmarshal(data, v)
+	return true, jsonx.Unmarshal(data, v, options...)
 }
 
 // Error returns the error message.
