@@ -12,11 +12,11 @@ import (
 func WithZapLogger(logger *zap.Logger) HandlerOption {
 	return func(h *Handler) {
 		h.newLogger = func(r *http.Request) harpy.ExchangeLogger {
-			return harpy.ZapExchangeLogger{
-				Target: logger.With(
+			return harpy.NewZapExchangeLogger(
+				logger.With(
 					zap.String("remote_addr", r.RemoteAddr),
 				),
-			}
+			)
 		}
 	}
 }

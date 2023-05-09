@@ -85,9 +85,7 @@ func Exchange(
 			return err
 		}
 
-		l = ZapExchangeLogger{
-			Target: t,
-		}
+		l = NewZapExchangeLogger(t)
 	}
 
 	defer func() {

@@ -21,7 +21,7 @@ var _ = Describe("func Exchange()", func() {
 		reader    *RequestSetReaderStub
 		writer    *ResponseWriterStub
 		logs      *observer.ObservedLogs
-		logger    *ZapExchangeLogger
+		logger    ExchangeLogger
 	)
 
 	BeforeEach(func() {
@@ -45,10 +45,7 @@ var _ = Describe("func Exchange()", func() {
 
 		var core zapcore.Core
 		core, logs = observer.New(zapcore.DebugLevel)
-
-		logger = &ZapExchangeLogger{
-			Target: zap.New(core),
-		}
+		logger = NewZapExchangeLogger(zap.New(core))
 	})
 
 	When("the writer cannot be closed", func() {

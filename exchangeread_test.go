@@ -19,7 +19,7 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 		reader    *RequestSetReaderStub
 		writer    *ResponseWriterStub
 		logs      *observer.ObservedLogs
-		logger    *ZapExchangeLogger
+		logger    ExchangeLogger
 		closed    bool
 	)
 
@@ -47,10 +47,7 @@ var _ = Describe("func Exchange() (RequestSetReader error conditions)", func() {
 
 		var core zapcore.Core
 		core, logs = observer.New(zapcore.DebugLevel)
-
-		logger = &ZapExchangeLogger{
-			Target: zap.New(core),
-		}
+		logger = NewZapExchangeLogger(zap.New(core))
 
 		closed = false
 	})

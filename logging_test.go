@@ -39,7 +39,7 @@ func (g *stubIDGenerator) NewSpanID(ctx context.Context, traceID oteltrace.Trace
 	return g.CallNewSpanID(ctx, traceID)
 }
 
-var _ = Context("type ZapExchangeLogger", func() {
+var _ = Context("type structuredExchangeLogger", func() {
 	var (
 		ctx                           context.Context
 		request                       harpy.Request
@@ -48,7 +48,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 		nativeErrorNonStandardMessage harpy.ErrorResponse
 		nonNativeError                harpy.ErrorResponse
 		buffer                        bytes.Buffer
-		logger                        ZapExchangeLogger
+		logger                        ExchangeLogger
 		stubIDGen                     *stubIDGenerator
 		tracer                        oteltrace.Tracer
 	)
@@ -87,8 +87,8 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 		buffer.Reset()
 
-		logger = ZapExchangeLogger{
-			Target: zap.New(
+		logger = NewZapExchangeLogger(
+			zap.New(
 				zapcore.NewCore(
 					zapcore.NewConsoleEncoder(
 						zap.NewDevelopmentEncoderConfig(),
@@ -97,7 +97,7 @@ var _ = Context("type ZapExchangeLogger", func() {
 					zapcore.DebugLevel,
 				),
 			),
-		}
+		)
 	})
 
 	Describe("func LogError()", func() {
@@ -106,7 +106,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogError(ctx, nativeError)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`error	{"error_code": -32601, "error": "method not found", "trace_id": "%s"}`,
@@ -122,7 +121,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogError(ctx, nativeErrorNonStandardMessage)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`error	{"error_code": -32601, "error": "method not found", "trace_id": "%s", "responded_with": "<message>"}`,
@@ -138,7 +136,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogError(ctx, nonNativeError)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`error	{"error_code": -32603, "error": "internal server error", "trace_id": "%s", "caused_by": "<error>"}`,
@@ -157,7 +154,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 			request.ID = nil
 			logger.LogNotification(ctx, request)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`notify method	{"param_size": 9, "trace_id": "%s"}`,
@@ -175,7 +171,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			request.ID = nil
 			request.Method = ""
 			logger.LogNotification(ctx, request)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`notify ""	{"param_size": 9, "trace_id": "%s"}`,
@@ -193,7 +188,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			request.ID = nil
 			request.Method = "<the method>\x00"
 			logger.LogNotification(ctx, request)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`notify "<the method>\x00"	{"param_size": 9, "trace_id": "%s"}`,
@@ -211,7 +205,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogCall(ctx, request, success)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`call method	{"param_size": 9, "trace_id": "%s", "result_size": 3}`,
@@ -228,7 +221,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 			request.Method = ""
 			logger.LogCall(ctx, request, success)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`call ""	{"param_size": 9, "trace_id": "%s", "result_size": 3}`,
@@ -245,7 +237,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 
 			request.Method = "<the method>\x00"
 			logger.LogCall(ctx, request, success)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`call "<the method>\x00"	{"param_size": 9, "trace_id": "%s", "result_size": 3}`,
@@ -261,7 +252,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogCall(ctx, request, nativeError)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`call method	{"param_size": 9, "trace_id": "%s", "error_code": -32601, "error": "method not found"}`,
@@ -277,7 +267,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogCall(ctx, request, nativeErrorNonStandardMessage)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`call method	{"param_size": 9, "trace_id": "%s", "error_code": -32601, "error": "method not found", "responded_with": "<message>"}`,
@@ -293,7 +282,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogCall(ctx, request, nonNativeError)
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`call method	{"param_size": 9, "trace_id": "%s", "error_code": -32603, "error": "internal server error", "caused_by": "<error>"}`,
@@ -311,7 +299,6 @@ var _ = Context("type ZapExchangeLogger", func() {
 			defer span.End()
 
 			logger.LogWriterError(ctx, errors.New("<error>"))
-			logger.Target.Sync()
 
 			substr := fmt.Sprintf(
 				`unable to write JSON-RPC response	{"error": "<error>", "trace_id": "%s"}`,
