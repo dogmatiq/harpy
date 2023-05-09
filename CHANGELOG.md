@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.9.1] - 2023-05-09
+
+### Changed
+
+- **[BC]** Bump Go version requirement from 1.19 to 1.20, see [versioning policy]
+
 ## [0.9.0] - 2023-05-09
 
 ### Added
@@ -19,7 +25,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ### Removed
 
-- Removed `ZapExchangeLogger` struct
+- **[BC]** Removed `ZapExchangeLogger` struct
 
 ## [0.8.2] - 2023-04-26
 
@@ -158,6 +164,7 @@ if err != nil {
 
 <!-- references -->
 
+[versioning policy]: https://github.com/dogmatiq/.github/blob/main/VERSIONING.md
 [unreleased]: https://github.com/dogmatiq/harpy
 [0.1.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.1.0
 [0.2.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.2.0
