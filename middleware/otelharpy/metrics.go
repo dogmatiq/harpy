@@ -9,9 +9,6 @@ import (
 	"github.com/dogmatiq/harpy/internal/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
-	"go.opentelemetry.io/otel/metric/unit"
 )
 
 // Metrics is an implementation of harpy.Exchanger that provides OpenTelemetry
@@ -33,10 +30,10 @@ type Metrics struct {
 	ServiceName string
 
 	once          sync.Once
-	calls         syncint64.Counter
-	notifications syncint64.Counter
-	errors        syncint64.Counter
-	duration      syncint64.Histogram
+	calls         metric.Int64Counter
+	notifications metric.Int64Counter
+	errors        metric.Int64Counter
+	duration      metric.Int64Histogram
 	attributes    []attribute.KeyValue
 }
 
@@ -46,18 +43,19 @@ func (m *Metrics) Call(ctx context.Context, req harpy.Request) harpy.Response {
 
 	attrs := requestAttributes(req)
 	attrs = append(attrs, m.attributes...)
+	attrOption := metric.WithAttributes(attrs...)
 
-	m.calls.Add(ctx, 1, attrs...)
+	m.calls.Add(ctx, 1, attrOption)
 
 	start := time.Now()
 	res := m.Next.Call(ctx, req)
 	elapsed := time.Since(start)
 
-	m.duration.Record(ctx, durationToMillis(elapsed), attrs...)
+	m.duration.Record(ctx, durationToMillis(elapsed), attrOption)
 
 	if res, ok := res.(harpy.ErrorResponse); ok {
 		attrs = append(attrs, errorResponseAttributes(res)...)
-		m.errors.Add(ctx, 1, attrs...)
+		m.errors.Add(ctx, 1, attrOption)
 	}
 
 	return res
@@ -72,14 +70,15 @@ func (m *Metrics) Notify(ctx context.Context, req harpy.Request) {
 
 	attrs := requestAttributes(req)
 	attrs = append(attrs, m.attributes...)
+	attrOption := metric.WithAttributes(attrs...)
 
-	m.notifications.Add(ctx, 1, attrs...)
+	m.notifications.Add(ctx, 1, attrOption)
 
 	start := time.Now()
 	m.Next.Notify(ctx, req)
 	elapsed := time.Since(start)
 
-	m.duration.Record(ctx, durationToMillis(elapsed), attrs...)
+	m.duration.Record(ctx, durationToMillis(elapsed), attrOption)
 }
 
 // init initializes the tracer if it has not already been initialized.
@@ -91,37 +90,38 @@ func (m *Metrics) init() {
 		)
 
 		var err error
-		m.calls, err = meter.SyncInt64().Counter(
+
+		m.calls, err = meter.Int64Counter(
 			"rpc.server.calls",
-			instrument.WithDescription("The number of JSON-RPC requests that are 'calls'."),
-			instrument.WithUnit(unit.Dimensionless),
+			metric.WithDescription("The number of JSON-RPC requests that are 'calls'."),
+			metric.WithUnit("1"),
 		)
 		if err != nil {
 			panic(err)
 		}
 
-		m.notifications, err = meter.SyncInt64().Counter(
+		m.notifications, err = meter.Int64Counter(
 			"rpc.server.notifications",
-			instrument.WithDescription("The number of JSON-RPC requests that are 'calls'."),
-			instrument.WithUnit(unit.Dimensionless),
+			metric.WithDescription("The number of JSON-RPC requests that are 'calls'."),
+			metric.WithUnit("1"),
 		)
 		if err != nil {
 			panic(err)
 		}
 
-		m.errors, err = meter.SyncInt64().Counter(
+		m.errors, err = meter.Int64Counter(
 			"rpc.server.errors",
-			instrument.WithDescription("The number of JSON-RPC 'call' requests that result in an error."),
-			instrument.WithUnit(unit.Dimensionless),
+			metric.WithDescription("The number of JSON-RPC 'call' requests that result in an error."),
+			metric.WithUnit("1"),
 		)
 		if err != nil {
 			panic(err)
 		}
 
-		m.duration, err = meter.SyncInt64().Histogram(
+		m.duration, err = meter.Int64Histogram(
 			"rpc.server.duration",
-			instrument.WithDescription("The amount of time it takes user-provided handlers to process JSON-RPC requests."),
-			instrument.WithUnit(unit.Milliseconds),
+			metric.WithDescription("The amount of time it takes user-provided handlers to process JSON-RPC requests."),
+			metric.WithUnit("ms"),
 		)
 		if err != nil {
 			panic(err)
