@@ -233,9 +233,10 @@ var _ = Describe("type Tracing", func() {
 				exchanger.NotifyFunc = func(
 					_ context.Context,
 					req harpy.Request,
-				) {
+				) error {
 					called = true
 					Expect(req).To(Equal(request))
+					return nil
 				}
 
 				tracing.Notify(context.Background(), request)

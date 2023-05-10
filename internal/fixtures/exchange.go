@@ -9,7 +9,7 @@ import (
 // ExchangerStub is a test implementation of the Exchanger interface.
 type ExchangerStub struct {
 	CallFunc   func(context.Context, harpy.Request) harpy.Response
-	NotifyFunc func(context.Context, harpy.Request)
+	NotifyFunc func(context.Context, harpy.Request) error
 }
 
 // Call handles a call request and returns the response.
@@ -22,10 +22,12 @@ func (s *ExchangerStub) Call(ctx context.Context, req harpy.Request) harpy.Respo
 }
 
 // Notify handles a notification request.
-func (s *ExchangerStub) Notify(ctx context.Context, req harpy.Request) {
+func (s *ExchangerStub) Notify(ctx context.Context, req harpy.Request) error {
 	if s.NotifyFunc != nil {
-		s.NotifyFunc(ctx, req)
+		return s.NotifyFunc(ctx, req)
 	}
+
+	return nil
 }
 
 // RequestSetReaderStub is a test implementation of the RequestSetReader

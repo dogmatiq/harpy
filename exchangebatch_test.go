@@ -132,9 +132,10 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 					observer.LoggedEntry{
 						Entry: zapcore.Entry{
 							Level:   zapcore.InfoLevel,
-							Message: `call "<method-a>"`,
+							Message: `call`,
 						},
 						Context: []zapcore.Field{
+							zap.String("method", "<method-a>"),
 							zap.Int("param_size", 2),
 							zap.Int("result_size", 22),
 						},
@@ -185,8 +186,9 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				exchanger.NotifyFunc = func(
 					_ context.Context,
 					req Request,
-				) {
+				) error {
 					Expect(req).To(Equal(requestC))
+					return nil
 				}
 
 				err := Exchange(
@@ -203,9 +205,10 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 					observer.LoggedEntry{
 						Entry: zapcore.Entry{
 							Level:   zapcore.InfoLevel,
-							Message: `notify "<method-c>"`,
+							Message: `notify`,
 						},
 						Context: []zapcore.Field{
+							zap.String("method", "<method-c>"),
 							zap.Int("param_size", 2),
 						},
 					},
@@ -245,11 +248,12 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 			exchanger.NotifyFunc = func(
 				_ context.Context,
 				req Request,
-			) {
+			) error {
 				m.Lock()
 				defer m.Unlock()
 
 				notifications = append(notifications, req)
+				return nil
 			}
 
 			writer.WriteBatchedFunc = nil // remove default panic behavior
@@ -308,9 +312,10 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				observer.LoggedEntry{
 					Entry: zapcore.Entry{
 						Level:   zapcore.InfoLevel,
-						Message: `call "<method-a>"`,
+						Message: `call`,
 					},
 					Context: []zapcore.Field{
+						zap.String("method", "<method-a>"),
 						zap.Int("param_size", 2),
 						zap.Int("result_size", 22),
 					},
@@ -318,9 +323,10 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				observer.LoggedEntry{
 					Entry: zapcore.Entry{
 						Level:   zapcore.InfoLevel,
-						Message: `call "<method-b>"`,
+						Message: `call`,
 					},
 					Context: []zapcore.Field{
+						zap.String("method", "<method-b>"),
 						zap.Int("param_size", 2),
 						zap.Int("result_size", 22),
 					},
@@ -328,9 +334,10 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				observer.LoggedEntry{
 					Entry: zapcore.Entry{
 						Level:   zapcore.InfoLevel,
-						Message: `notify "<method-c>"`,
+						Message: `notify`,
 					},
 					Context: []zapcore.Field{
+						zap.String("method", "<method-c>"),
 						zap.Int("param_size", 2),
 					},
 				},
@@ -387,13 +394,14 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				exchanger.NotifyFunc = func(
 					ctx context.Context,
 					_ Request,
-				) {
+				) error {
 					defer GinkgoRecover()
 
 					// Just as for calls, we are expect that the context for
 					// notifications is canceled.
 					<-ctx.Done()
 					Expect(ctx.Err()).To(Equal(context.Canceled))
+					return nil
 				}
 
 				Exchange(
@@ -420,9 +428,10 @@ var _ = Describe("func Exchange() (batch requests)", func() {
 				exchanger.NotifyFunc = func(
 					ctx context.Context,
 					_ Request,
-				) {
+				) error {
 					time.Sleep(5 * time.Millisecond)
 					atomic.AddInt32(&done, 1)
+					return nil
 				}
 
 				Exchange(

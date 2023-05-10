@@ -118,9 +118,10 @@ var _ = Describe("func Exchange() (single request)", func() {
 				observer.LoggedEntry{
 					Entry: zapcore.Entry{
 						Level:   zapcore.InfoLevel,
-						Message: `call "<method>"`,
+						Message: `call`,
 					},
 					Context: []zapcore.Field{
+						zap.String("method", "<method>"),
 						zap.Int("param_size", 2),
 						zap.Int("result_size", 10),
 					},
@@ -166,8 +167,9 @@ var _ = Describe("func Exchange() (single request)", func() {
 			exchanger.NotifyFunc = func(
 				_ context.Context,
 				req Request,
-			) {
+			) error {
 				Expect(req).To(Equal(request))
+				return nil
 			}
 
 			err := Exchange(
@@ -184,9 +186,10 @@ var _ = Describe("func Exchange() (single request)", func() {
 				observer.LoggedEntry{
 					Entry: zapcore.Entry{
 						Level:   zapcore.InfoLevel,
-						Message: `notify "<method>"`,
+						Message: `notify`,
 					},
 					Context: []zapcore.Field{
+						zap.String("method", "<method>"),
 						zap.Int("param_size", 2),
 					},
 				},

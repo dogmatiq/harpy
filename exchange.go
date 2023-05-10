@@ -19,7 +19,9 @@ type Exchanger interface {
 	Call(context.Context, Request) Response
 
 	// Notify handles a notification request, which does not expect a response.
-	Notify(context.Context, Request)
+	//
+	// It may return an error to be logged, but it is not sent to the caller.
+	Notify(context.Context, Request) error
 }
 
 // RequestSetReader reads requests sets in order to perform an exchange.
@@ -199,8 +201,8 @@ func exchangeOne(
 	l ExchangeLogger,
 ) error {
 	if req.IsNotification() {
-		e.Notify(ctx, req)
-		l.LogNotification(ctx, req)
+		err := e.Notify(ctx, req)
+		l.LogNotification(ctx, req, err)
 		return nil
 	}
 

@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [Unreleased]
+
+### Changed
+
+- **[BC]** Add `error` return value to `Exchanger.Notify()`
+- **[BC]** Add `error` parameter to `ExchangeLogger.LogNotification()`
+- Add `method` attribute to structured logging output
+
 ## [0.9.1] - 2023-05-09
 
 ### Changed

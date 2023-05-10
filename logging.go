@@ -2,9 +2,6 @@ package harpy
 
 import (
 	"context"
-	"fmt"
-	"strings"
-	"unicode"
 
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -23,7 +20,7 @@ type ExchangeLogger interface {
 	LogWriterError(ctx context.Context, err error)
 
 	// LogNotification logs about a notification request.
-	LogNotification(ctx context.Context, req Request)
+	LogNotification(ctx context.Context, req Request, err error)
 
 	// LogCall logs about a call request/response pair.
 	LogCall(ctx context.Context, req Request, res Response)
@@ -108,13 +105,9 @@ func (l structuredExchangeLogger[Attr]) LogWriterError(ctx context.Context, err 
 }
 
 // LogNotification logs information about a notification request.
-func (l structuredExchangeLogger[Attr]) LogNotification(ctx context.Context, req Request) {
-	var w strings.Builder
-
-	w.WriteString("notify ")
-	writeMethod(&w, req.Method)
-
+func (l structuredExchangeLogger[Attr]) LogNotification(ctx context.Context, req Request, err error) {
 	attrs := []Attr{
+		l.String("method", req.Method),
 		l.Int("param_size", len(req.Parameters)),
 	}
 
@@ -122,20 +115,31 @@ func (l structuredExchangeLogger[Attr]) LogNotification(ctx context.Context, req
 		attrs = append(attrs, l.String("trace_id", span.SpanContext().TraceID().String()))
 	}
 
-	l.Target.Info(
-		w.String(),
-		attrs...,
-	)
+	switch err := err.(type) {
+	case nil:
+		l.Target.Info("notify", attrs...)
+	case Error:
+		attrs = append(
+			attrs,
+			l.Int("error_code", int(err.Code())),
+			l.String("error", err.Message()),
+		)
+
+		if cause := err.Unwrap(); cause != nil {
+			attrs = append(attrs, l.String("caused_by", cause.Error()))
+		}
+
+		l.Target.Error("notify", attrs...)
+	default:
+		attrs = append(attrs, l.String("error", err.Error()))
+		l.Target.Error("notify", attrs...)
+	}
 }
 
 // LogCall logs information about a call request and its response.
 func (l structuredExchangeLogger[Attr]) LogCall(ctx context.Context, req Request, res Response) {
-	var w strings.Builder
-
-	w.WriteString("call ")
-	writeMethod(&w, req.Method)
-
 	attrs := []Attr{
+		l.String("method", req.Method),
 		l.Int("param_size", len(req.Parameters)),
 	}
 
@@ -147,7 +151,7 @@ func (l structuredExchangeLogger[Attr]) LogCall(ctx context.Context, req Request
 	case SuccessResponse:
 		attrs = append(attrs, l.Int("result_size", len(res.Result)))
 		l.Target.Info(
-			w.String(),
+			"call",
 			attrs...,
 		)
 	case ErrorResponse:
@@ -166,50 +170,8 @@ func (l structuredExchangeLogger[Attr]) LogCall(ctx context.Context, req Request
 		}
 
 		l.Target.Error(
-			w.String(),
+			"call",
 			attrs...,
 		)
 	}
-}
-
-// writeMethod formats a JSON-RPC method name for display and writes it to w.
-func writeMethod(w *strings.Builder, m string) {
-	if m == "" || !isAlphaNumeric(m) {
-		fmt.Fprintf(w, "%#v", m)
-	} else {
-		w.WriteString(m)
-	}
-}
-
-// isAlphaNumeric returns true if s consists of only letters and digits.
-func isAlphaNumeric(s string) bool {
-	for _, r := range s {
-		if !unicode.IsLetter(r) && !unicode.IsNumber(r) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// writeDataSize writes a human-readable representation of the given size (in
-// bytes) to w.
-func writeDataSize(w *strings.Builder, n int) {
-	if n < 1000 {
-		fmt.Fprintf(w, "%d B", n)
-		return
-	}
-
-	f := float64(n)
-	const units = "KMGT"
-
-	for _, u := range units {
-		f /= 1000
-		if f < 1000 {
-			fmt.Fprintf(w, "%0.1f %cB", f, u)
-			return
-		}
-	}
-
-	fmt.Fprintf(w, "%0.1f PB", f/1000)
 }

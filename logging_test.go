@@ -39,7 +39,7 @@ func (g *stubIDGenerator) NewSpanID(ctx context.Context, traceID oteltrace.Trace
 	return g.CallNewSpanID(ctx, traceID)
 }
 
-var _ = Context("type structuredExchangeLogger", func() {
+var _ = Describe("type structuredExchangeLogger", func() {
 	var (
 		ctx                           context.Context
 		request                       harpy.Request
@@ -76,7 +76,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 		request = Request{
 			Version:    "2.0",
 			ID:         json.RawMessage(`123`),
-			Method:     "method",
+			Method:     "<method>",
 			Parameters: json.RawMessage(`[1, 2, 3]`),
 		}
 
@@ -108,7 +108,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogError(ctx, nativeError)
 
 			substr := fmt.Sprintf(
-				`error	{"error_code": -32601, "error": "method not found", "trace_id": "%s"}`,
+				`ERROR	error	{"error_code": -32601, "error": "method not found", "trace_id": "%s"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -123,7 +123,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogError(ctx, nativeErrorNonStandardMessage)
 
 			substr := fmt.Sprintf(
-				`error	{"error_code": -32601, "error": "method not found", "trace_id": "%s", "responded_with": "<message>"}`,
+				`ERROR	error	{"error_code": -32601, "error": "method not found", "trace_id": "%s", "responded_with": "<message>"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -138,7 +138,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogError(ctx, nonNativeError)
 
 			substr := fmt.Sprintf(
-				`error	{"error_code": -32603, "error": "internal server error", "trace_id": "%s", "caused_by": "<error>"}`,
+				`ERROR	error	{"error_code": -32603, "error": "internal server error", "trace_id": "%s", "caused_by": "<error>"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -153,10 +153,10 @@ var _ = Context("type structuredExchangeLogger", func() {
 			defer span.End()
 
 			request.ID = nil
-			logger.LogNotification(ctx, request)
+			logger.LogNotification(ctx, request, nil)
 
 			substr := fmt.Sprintf(
-				`notify method	{"param_size": 9, "trace_id": "%s"}`,
+				`INFO	notify	{"method": "<method>", "param_size": 9, "trace_id": "%s"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -164,16 +164,15 @@ var _ = Context("type structuredExchangeLogger", func() {
 			)
 		})
 
-		It("quotes empty method names", func() {
+		It("logs details of a non-native error", func() {
 			ctx, span := tracer.Start(ctx, "<span>")
 			defer span.End()
 
 			request.ID = nil
-			request.Method = ""
-			logger.LogNotification(ctx, request)
+			logger.LogNotification(ctx, request, errors.New("<error>"))
 
 			substr := fmt.Sprintf(
-				`notify ""	{"param_size": 9, "trace_id": "%s"}`,
+				`ERROR	notify	{"method": "<method>", "param_size": 9, "trace_id": "%s", "error": "<error>"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -181,16 +180,20 @@ var _ = Context("type structuredExchangeLogger", func() {
 			)
 		})
 
-		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
+		It("logs details of a native error", func() {
 			ctx, span := tracer.Start(ctx, "<span>")
 			defer span.End()
 
+			err := MethodNotFound(
+				WithMessage("<message>"),
+				WithCause(errors.New("<error>")),
+			)
+
 			request.ID = nil
-			request.Method = "<the method>\x00"
-			logger.LogNotification(ctx, request)
+			logger.LogNotification(ctx, request, err)
 
 			substr := fmt.Sprintf(
-				`notify "<the method>\x00"	{"param_size": 9, "trace_id": "%s"}`,
+				`ERROR	notify	{"method": "<method>", "param_size": 9, "trace_id": "%s", "error_code": -32601, "error": "<message>", "caused_by": "<error>"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -207,39 +210,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogCall(ctx, request, success)
 
 			substr := fmt.Sprintf(
-				`call method	{"param_size": 9, "trace_id": "%s", "result_size": 3}`,
-				"01020304050607080102040810203040",
-			)
-			Expect(buffer.String()).To(
-				ContainSubstring(substr),
-			)
-		})
-
-		It("quotes empty method names", func() {
-			ctx, span := tracer.Start(ctx, "<span>")
-			defer span.End()
-
-			request.Method = ""
-			logger.LogCall(ctx, request, success)
-
-			substr := fmt.Sprintf(
-				`call ""	{"param_size": 9, "trace_id": "%s", "result_size": 3}`,
-				"01020304050607080102040810203040",
-			)
-			Expect(buffer.String()).To(
-				ContainSubstring(substr),
-			)
-		})
-
-		It("quotes and escapes methods names that contain whitespace and non-printable characters", func() {
-			ctx, span := tracer.Start(ctx, "<span>")
-			defer span.End()
-
-			request.Method = "<the method>\x00"
-			logger.LogCall(ctx, request, success)
-
-			substr := fmt.Sprintf(
-				`call "<the method>\x00"	{"param_size": 9, "trace_id": "%s", "result_size": 3}`,
+				`INFO	call	{"method": "<method>", "param_size": 9, "trace_id": "%s", "result_size": 3}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -254,7 +225,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogCall(ctx, request, nativeError)
 
 			substr := fmt.Sprintf(
-				`call method	{"param_size": 9, "trace_id": "%s", "error_code": -32601, "error": "method not found"}`,
+				`ERROR	call	{"method": "<method>", "param_size": 9, "trace_id": "%s", "error_code": -32601, "error": "method not found"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -269,7 +240,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogCall(ctx, request, nativeErrorNonStandardMessage)
 
 			substr := fmt.Sprintf(
-				`call method	{"param_size": 9, "trace_id": "%s", "error_code": -32601, "error": "method not found", "responded_with": "<message>"}`,
+				`ERROR	call	{"method": "<method>", "param_size": 9, "trace_id": "%s", "error_code": -32601, "error": "method not found", "responded_with": "<message>"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -284,7 +255,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogCall(ctx, request, nonNativeError)
 
 			substr := fmt.Sprintf(
-				`call method	{"param_size": 9, "trace_id": "%s", "error_code": -32603, "error": "internal server error", "caused_by": "<error>"}`,
+				`ERROR	call	{"method": "<method>", "param_size": 9, "trace_id": "%s", "error_code": -32603, "error": "internal server error", "caused_by": "<error>"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(
@@ -301,7 +272,7 @@ var _ = Context("type structuredExchangeLogger", func() {
 			logger.LogWriterError(ctx, errors.New("<error>"))
 
 			substr := fmt.Sprintf(
-				`unable to write JSON-RPC response	{"error": "<error>", "trace_id": "%s"}`,
+				`ERROR	unable to write JSON-RPC response	{"error": "<error>", "trace_id": "%s"}`,
 				"01020304050607080102040810203040",
 			)
 			Expect(buffer.String()).To(

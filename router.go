@@ -48,10 +48,14 @@ func (r *Router) Call(ctx context.Context, req Request) Response {
 //
 // It invokes the handler associated with the method specified by the request.
 // If no such method has been registered it does nothing.
-func (r *Router) Notify(ctx context.Context, req Request) {
-	if h, ok := r.routes[req.Method]; ok {
-		h(ctx, req) // nolint:errcheck // notification errors are not reported to the caller
+func (r *Router) Notify(ctx context.Context, req Request) error {
+	h, ok := r.routes[req.Method]
+	if !ok {
+		return MethodNotFound()
 	}
+
+	_, err := h(ctx, req)
+	return err
 }
 
 // HasRoute returns true if the router has a route for the given method.
