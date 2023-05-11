@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
-## [Unreleased]
+## [0.10.0] - 2023-05-11
 
 ### Changed
 
@@ -187,6 +187,8 @@ if err != nil {
 [0.8.1]: https://github.com/dogmatiq/harpy/releases/tag/v0.8.1
 [0.8.2]: https://github.com/dogmatiq/harpy/releases/tag/v0.8.2
 [0.9.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.9.0
+[0.9.1]: https://github.com/dogmatiq/harpy/releases/tag/v0.9.1
+[0.10.0]: https://github.com/dogmatiq/harpy/releases/tag/v0.10.0
 
 <!-- version template
 ## [0.0.1] - YYYY-MM-DD
