@@ -50,6 +50,15 @@ func NewSuccessResponse(requestID json.RawMessage, result any) Response {
 	}
 
 	if result != nil {
+		if result, ok := result.(Validatable); ok {
+			if err := result.Validate(); err != nil {
+				return NewErrorResponse(
+					requestID,
+					fmt.Errorf("result is invalid: %w", err),
+				)
+			}
+		}
+
 		var err error
 		res.Result, err = json.Marshal(result)
 		if err != nil {
