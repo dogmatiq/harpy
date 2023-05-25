@@ -37,6 +37,8 @@ type Metrics struct {
 	attributes    []attribute.KeyValue
 }
 
+var _ harpy.Exchanger = (*Metrics)(nil)
+
 // Call handles a call request and returns the response.
 func (m *Metrics) Call(ctx context.Context, req harpy.Request) harpy.Response {
 	m.init()
@@ -65,7 +67,7 @@ func (m *Metrics) Call(ctx context.Context, req harpy.Request) harpy.Response {
 //
 // It invokes the handler associated with the method specified by the request.
 // If no such method has been registered it does nothing.
-func (m *Metrics) Notify(ctx context.Context, req harpy.Request) {
+func (m *Metrics) Notify(ctx context.Context, req harpy.Request) error {
 	m.init()
 
 	attrs := requestAttributes(req)
@@ -75,10 +77,16 @@ func (m *Metrics) Notify(ctx context.Context, req harpy.Request) {
 	m.notifications.Add(ctx, 1, attrOption)
 
 	start := time.Now()
-	m.Next.Notify(ctx, req)
+	err := m.Next.Notify(ctx, req)
 	elapsed := time.Since(start)
 
 	m.duration.Record(ctx, durationToMillis(elapsed), attrOption)
+
+	if err != nil {
+		m.errors.Add(ctx, 1, attrOption)
+	}
+
+	return err
 }
 
 // init initializes the tracer if it has not already been initialized.

@@ -48,6 +48,8 @@ type Tracing struct {
 	attributes     []attribute.KeyValue
 }
 
+var _ harpy.Exchanger = (*Tracing)(nil)
+
 // Call handles a call request and returns the response.
 func (t *Tracing) Call(ctx context.Context, req harpy.Request) harpy.Response {
 	var res harpy.Response
@@ -80,15 +82,24 @@ func (t *Tracing) Call(ctx context.Context, req harpy.Request) harpy.Response {
 //
 // It invokes the handler associated with the method specified by the request.
 // If no such method has been registered it does nothing.
-func (t *Tracing) Notify(ctx context.Context, req harpy.Request) {
+func (t *Tracing) Notify(ctx context.Context, req harpy.Request) error {
+	var err error
+
 	t.withSpan(
 		ctx,
 		req,
 		func(ctx context.Context, span trace.Span) {
-			t.Next.Notify(ctx, req)
-			span.SetStatus(codes.Ok, "")
+			err = t.Next.Notify(ctx, req)
+			if err != nil {
+				span.SetStatus(codes.Error, err.Error())
+				span.RecordError(err)
+			} else {
+				span.SetStatus(codes.Ok, "")
+			}
 		},
 	)
+
+	return err
 }
 
 // withSpan invokes fn with a tracing span.

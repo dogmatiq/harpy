@@ -280,6 +280,43 @@ var _ = Describe("type Tracing", func() {
 					},
 				))
 			})
+
+			When("the notification returns an error", func() {
+				BeforeEach(func() {
+					exchanger.NotifyFunc = func(
+						_ context.Context,
+						_ harpy.Request,
+					) error {
+						return errors.New("<error>")
+					}
+				})
+
+				It("includes error information in the span", func() {
+					tracing.Notify(context.Background(), request)
+
+					spans := recorder.Ended()
+					Expect(spans).To(HaveLen(1))
+
+					span := spans[0]
+
+					Expect(span.Status()).To(Equal(
+						tracesdk.Status{
+							Code:        codes.Error,
+							Description: "<error>",
+						},
+					))
+
+					Expect(span.Events()).To(ConsistOf(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Name": Equal("exception"),
+							"Attributes": ConsistOf(
+								semconv.ExceptionTypeKey.String("*errors.errorString"),
+								semconv.ExceptionMessageKey.String("<error>"),
+							),
+						}),
+					))
+				})
+			})
 		})
 	})
 

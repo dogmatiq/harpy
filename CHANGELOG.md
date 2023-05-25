@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 [keep a changelog]: https://keepachangelog.com/en/1.0.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.10.3] - 2023-05-25
+
+### Fixed
+
+- Update `otelharpy` middleware work with change sto `harpy.Exchanger` introduced in v0.10.0
+
 ## [0.10.2] - 2023-05-25
 
 - Updated to stable release of OpenTelemetry metrics SDK
