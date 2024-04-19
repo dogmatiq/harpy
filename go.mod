@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/dogmatiq/iago v0.4.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.0
 	go.opentelemetry.io/otel v1.25.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.25.0
 	go.opentelemetry.io/otel/metric v1.25.0
@@ -23,7 +23,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
