@@ -1,7 +1,6 @@
 module github.com/dogmatiq/harpy
 
 go 1.22.0
-
 toolchain go1.23.2
 
 require (
@@ -15,7 +14,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.35.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.12.0
 )
 
 require (
