@@ -1,7 +1,8 @@
 module github.com/dogmatiq/harpy
 
-go 1.22.0
-toolchain go1.23.2
+go 1.23.0
+
+toolchain go1.23.6
 
 require (
 	github.com/dogmatiq/iago v0.4.0
