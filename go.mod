@@ -1,6 +1,6 @@
 module github.com/dogmatiq/harpy
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/dogmatiq/iago v0.4.0
@@ -13,7 +13,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 )
 
 require (
