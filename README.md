@@ -1,14 +1,17 @@
 <div align="center">
 
-# Harpy
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://dogmatiq.io/res/img/dynamic/repo/harpy/banner/dark.svg">
+  <img alt="Dogmatiq harpy" src="https://dogmatiq.io/res/img/dynamic/repo/harpy/banner/light.svg" height="44">
+</picture>
 
 A toolkit for writing [JSON-RPC v2.0](https://www.jsonrpc.org/specification)
 clients and servers in Go.
 
-[![Documentation](https://img.shields.io/badge/go.dev-documentation-007d9c?&style=for-the-badge)](https://pkg.go.dev/github.com/dogmatiq/harpy)
-[![Latest Version](https://img.shields.io/github/tag/dogmatiq/harpy.svg?&style=for-the-badge&label=semver)](https://github.com/dogmatiq/harpy/releases)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/dogmatiq/harpy/ci.yml?style=for-the-badge&branch=main)](https://github.com/dogmatiq/harpy/actions/workflows/ci.yml)
-[![Code Coverage](https://img.shields.io/codecov/c/github/dogmatiq/harpy/main.svg?style=for-the-badge)](https://codecov.io/github/dogmatiq/harpy)
+[![API reference](https://dogmatiq.io/res/img/dynamic/repo/harpy/badge/docs.svg)](https://pkg.go.dev/github.com/dogmatiq/harpy)
+[![Latest version](https://dogmatiq.io/res/img/dynamic/repo/harpy/badge/semver.svg)](https://github.com/dogmatiq/harpy/releases)
+[![Build status](https://dogmatiq.io/res/img/dynamic/repo/harpy/badge/build.svg)](https://github.com/dogmatiq/harpy/actions/workflows/ci.yml)
+[![Code coverage](https://dogmatiq.io/res/img/dynamic/repo/harpy/badge/coverage.svg)](https://codecov.io/github/dogmatiq/harpy)
 
 </div>
 
